@@ -5,15 +5,19 @@ mechanics live in `.github/workflows/release.yml`; this is the part a person has
 
 ## Channels
 
-| Channel | Version | Triggered by | Who sees it |
-|---|---|---|---|
-| Pre-release | odd minor: `0.1.x`, `0.3.x`, … | Running the **Release** workflow by hand | Users who chose *Install Pre-Release Version* |
-| Stable | even minor: `0.2.x`, `1.0.x`, … | Pushing a tag `vX.Y.Z` | Everyone |
+| Channel | Version | Who sees it |
+|---|---|---|
+| Pre-release | odd minor: `0.1.x`, `0.3.x`, … | Users who chose *Install Pre-Release Version* |
+| Stable | even minor: `0.2.x`, `1.0.x`, … | Everyone |
 
-The odd/even rule is the Marketplace's own convention: pre-release and stable share one
-version line, so the two channels must never claim the same number. The workflow refuses a
-version on the wrong channel, and refuses any ref or tag that is not on `main` — only merged
-code ships. It also reruns the full CI gate, differential suite included, before packaging.
+The channel is decided by the version number alone. The odd/even rule is the Marketplace's
+own convention: pre-release and stable share one version line, so the two channels must never
+claim the same number.
+
+Every published version gets a tag `vX.Y.Z`, and pushing that tag is what publishes it. The
+workflow refuses a tag that does not match `package.json`, refuses any ref that is not on
+`main` — only merged code ships — and reruns the full CI gate, differential suite included,
+before packaging.
 
 Pre-releases ship the Phase 2 feature set while the MVP is built. The first stable release is
 the MVP.
@@ -48,29 +52,26 @@ new one and replace the secret.
 Open VSX also asks new publishers to sign its [publisher agreement](https://open-vsx.org/about)
 once, in the profile page, before the first publish goes through.
 
-## Cutting a pre-release
+## Cutting a release, either channel
 
-1. On a branch, bump `version` in `package.json` to the next odd-minor number and move the
-   changelog's *Unreleased* entries under a heading for it. Open a PR and merge it.
-2. Run `just package pre-release` locally and glance at the file list `vsce ls` prints. This
-   is the same build the workflow makes.
-3. **Actions → Release → Run workflow** on `main`. Tick *dry run* the first time to see the
-   `.vsix` built and uploaded as an artifact without publishing anything. Dry run is the one
-   mode that accepts a ref that is not on `main`, so a branch can be packaged for inspection.
-4. Run it again without *dry run*. Both stores update within a few minutes.
-
-## Cutting a stable release
-
-1. Same as step 1 above, with an even-minor version.
-2. Tag the merge commit on `main` and push the tag:
+1. On a branch, bump `version` in `package.json` — next odd minor for a pre-release, next even
+   minor for stable — and move the changelog's *Unreleased* entries under a heading for it.
+   Open a PR and merge it.
+2. Run `just package pre-release` (or `just package`) locally and glance at the file list
+   `vsce ls` prints. This is the same build the workflow makes.
+3. Tag the commit on `main` that carries the version bump and push the tag:
 
    ```
-   git tag -a v0.2.0 -m "v0.2.0" && git push origin v0.2.0
+   git tag -a v0.1.2 -m "v0.1.2" && git push origin v0.1.2
    ```
 
    The tag message becomes the GitHub release notes, so paste the changelog section into it.
-3. The workflow checks the tag against `package.json`, rebuilds, publishes to both stores and
-   creates a GitHub release with the `.vsix` attached.
+4. The workflow checks the tag against `package.json`, rebuilds, publishes to both stores and
+   creates a GitHub release (marked pre-release when the version is) with the `.vsix` attached.
+
+To see the `.vsix` a branch would produce without publishing anything, run
+**Actions → Release → Run workflow** on that branch with *dry run* ticked. Dry run is the one
+mode that accepts a ref that is not on `main`.
 
 ## If a publish fails halfway
 
