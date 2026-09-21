@@ -1,6 +1,6 @@
 {
   "name": "just-lang",
-  "displayName": "Justfile",
+  "displayName": "Justfile Tools",
   "description": "Language support and recipe running for just, the command runner.",
   "version": "0.1.0",
   "publisher": "KartikRajput",

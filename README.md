@@ -1,4 +1,4 @@
-# Justfile for VS Code
+# Justfile Tools for VS Code
 
 A VS Code extension for [`just`](https://github.com/casey/just), the command runner.
 
@@ -9,7 +9,7 @@ A VS Code extension for [`just`](https://github.com/casey/just), the command run
 
 ## Install
 
-From the Extensions view, search for **Justfile** and choose **Install Pre-Release Version**.
+From the Extensions view, search for **Justfile Tools** and choose **Install Pre-Release Version**.
 The extension is published to the
 [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=KartikRajput.just-lang)
 and to [Open VSX](https://open-vsx.org/extension/KartikRajput/just-lang) for VSCodium and other
