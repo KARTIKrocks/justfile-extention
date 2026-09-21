@@ -24,8 +24,11 @@ import { justBinary } from "./harness.js";
 // One line per argument, so quoting or splitting shows up as a changed count.
 // `positional-arguments` and "$@" rather than {{args}}: an interpolation is
 // spliced into the shell line, so a quote in an argument would break the
-// recipe and prove nothing about how it arrived.
-const JUSTFILE = `set positional-arguments
+// recipe and prove nothing about how it arrived. The shell is pinned so the
+// body means the same thing on every host that has one; what is under test
+// is how `just` hands arguments to it, which does not vary by platform.
+const JUSTFILE = `set shell := ["sh", "-cu"]
+set positional-arguments
 
 show *args:
     @pwd
@@ -49,7 +52,10 @@ function run(argv: readonly string[], cwd: string): string {
     });
 }
 
-describe("justArgv, against the real CLI", () => {
+// A recipe body needs a shell to observe anything, and this one is POSIX.
+// Skipped rather than rewritten for PowerShell: the claims under test are
+// about `just`'s argv handling, which is the same everywhere.
+describe.skipIf(process.platform === "win32")("justArgv, against the real CLI", () => {
     it("runs the named justfile in its own directory, wherever it is started from", () => {
         const { dir, file, elsewhere } = scratch();
         const out = run(justArgv(file, dir, "show", []), elsewhere);
