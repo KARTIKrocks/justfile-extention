@@ -96,6 +96,12 @@
           "default": "just",
           "markdownDescription": "%just.executablePath.description%",
           "scope": "resource"
+        },
+        "just.codeLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%just.codeLens.enabled.description%",
+          "scope": "resource"
         }
       }
     },
@@ -114,6 +120,43 @@
         "command": "just.configureExecutable",
         "title": "%just.configureExecutable.title%",
         "category": "Just"
+      },
+      {
+        "command": "just.runRecipe",
+        "title": "%just.runRecipe.title%",
+        "category": "Just",
+        "icon": "$(play)"
+      },
+      {
+        "command": "just.runRecipeWithArguments",
+        "title": "%just.runRecipeWithArguments.title%",
+        "category": "Just"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "just.runRecipe",
+          "when": "editorLangId == just"
+        },
+        {
+          "command": "just.runRecipeWithArguments",
+          "when": "editorLangId == just"
+        }
+      ]
+    },
+    "taskDefinitions": [
+      {
+        "type": "just",
+        "required": [
+          "recipe"
+        ],
+        "properties": {
+          "recipe": {
+            "type": "string",
+            "description": "%just.taskDefinition.recipe.description%"
+          }
+        }
       }
     ]
   },

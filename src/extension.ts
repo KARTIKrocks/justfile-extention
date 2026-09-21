@@ -9,9 +9,11 @@
 import * as vscode from "vscode";
 import { ParseCache } from "./model/cache.js";
 import { registerCliStatus } from "./providers/cliStatus.js";
+import { registerCodeLens } from "./providers/codeLens.js";
 import { registerDocumentSymbols } from "./providers/documentSymbols.js";
 import { forgetClosedDocuments } from "./providers/documents.js";
 import { registerFolding } from "./providers/folding.js";
+import { registerRunRecipe } from "./providers/runRecipe.js";
 import { registerSemanticTokens } from "./providers/semanticTokens.js";
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -41,6 +43,12 @@ export function activate(context: vscode.ExtensionContext): void {
     // waits for real demand (a justfile opening, trust being granted, and
     // so on), never for activation itself. See cliStatus.ts.
     registerCliStatus(context);
+
+    // Recipe execution. Registering the commands and the lens provider runs
+    // nothing; a recipe runs only when the user asks, and only after the
+    // trust check that is the first thing `just.runRecipe` does.
+    registerRunRecipe(context, cache);
+    registerCodeLens(context, cache);
 
     // Trust can be granted mid-session, so it is read at call time rather than
     // captured here. This listener exists to light up Tier 2 when that happens.
