@@ -9,6 +9,12 @@ one, following the Marketplace's pre-release convention.
 
 ## [Unreleased]
 
+### Fixed
+
+* Doc comments now match `just` exactly: whitespace is trimmed at both ends, only one `#`
+  is stripped (`## x` documents as `# x`), and a comment that is blank after trimming is no
+  doc at all. Found on a real Justfile whose doc line was indented under a `#` list.
+
 ## [0.1.1] — 2026-09-21
 
 ### Changed
