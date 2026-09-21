@@ -455,11 +455,10 @@ class Parser {
         const name = this.parseName();
         const path = this.at(TokenKind.StringLiteral) ? this.parseStringExpression() : undefined;
         const doc = this.takeDoc();
-        const end = this.peek().span;
         this.recoverToNextLine();
         const base = {
             kind: "module",
-            span: spanBetween(start, end),
+            span: this.spanThrough(start),
             name,
             optional,
             attributes,

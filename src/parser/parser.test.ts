@@ -115,6 +115,18 @@ mod sub
         expect(covers("set quiet\n")).toEqual(["set quiet"]);
         expect(covers("alias b := build\n")).toEqual(["alias b := build"]);
         expect(covers('import "other.just"\n')).toEqual(['import "other.just"']);
+        expect(covers("mod sub\n")).toEqual(["mod sub"]);
+    });
+
+    it("does not let a module's span swallow the item after it", () => {
+        // `end` used to be taken from `peek()` before recovery, which for
+        // `mod sub` is the newline token — the same "next unconsumed token"
+        // mistake `spanThrough` exists to avoid. The module's span then ran
+        // through the line break and into the following item.
+        expect(covers("mod sub\nbuild:\n    echo hi\n")).toEqual([
+            "mod sub",
+            "build:\n    echo hi",
+        ]);
     });
 
     it("covers a whole setting line even when the value cannot be parsed", () => {
