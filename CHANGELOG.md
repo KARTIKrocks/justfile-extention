@@ -9,6 +9,12 @@ one, following the Marketplace's pre-release convention.
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-09-21
+
+### Changed
+
+* New icon: the `just` wordmark.
+
 ## [0.1.0] — 2026-09-21
 
 First pre-release. Everything here runs in-process, without `just` installed and in
@@ -30,5 +36,6 @@ untrusted workspaces — nothing in this release executes a Justfile.
   never runs at activation.
 * `just.executablePath` setting, ignored in untrusted workspaces.
 
-[Unreleased]: https://github.com/KARTIKrocks/justfile-extention/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/KARTIKrocks/justfile-extention/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/KARTIKrocks/justfile-extention/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/KARTIKrocks/justfile-extention/releases/tag/v0.1.0
