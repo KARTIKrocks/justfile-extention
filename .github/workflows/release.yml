@@ -105,7 +105,7 @@ jobs:
           npx @vscode/vsce package $flag --out "${{ steps.meta.outputs.vsix }}"
           npx @vscode/vsce ls --tree
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vsix
           path: ${{ steps.meta.outputs.vsix }}
