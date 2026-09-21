@@ -18,7 +18,7 @@ jobs:
     name: Typecheck, lint, unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -41,7 +41,7 @@ jobs:
         # modules became stable, which the module fixture gates on.
         just: ["1.27.0", "1.31.0", "1.34.0", "1.35.0", "1.40.0", "1.58.0"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -57,7 +57,7 @@ jobs:
     name: Bundle size and dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24
