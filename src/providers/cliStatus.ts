@@ -9,12 +9,13 @@
  *
  * Detection is demand-driven, never activation-driven. AGENTS.md invariant 5
  * forbids a subprocess reachable from `activate()`, and merely deferring the
- * spawn to a later microtask still leaves it reachable — it happens on every
- * activation regardless of whether the user ever looks at a justfile. The
- * first real detection instead waits for a signal that the user actually
- * wants it: a justfile being opened, `just.executablePath` changing,
- * workspace trust being granted, or one of the three commands below. Until
- * one of those fires, the item shows an unchecked, idle state.
+ * spawn to a later microtask does not excuse it when nothing conditions it
+ * on anything — that still spawns on every activation regardless of whether
+ * the user ever looks at a justfile. The first real detection instead waits
+ * for a signal that the user actually wants it: a justfile already open (or
+ * one opened afterwards), `just.executablePath` changing, workspace trust
+ * being granted, or one of the three commands below. Until one of those
+ * fires, the item shows an unchecked, idle state.
  */
 
 import * as vscode from "vscode";
@@ -167,6 +168,29 @@ export function registerCliStatus(
             }
         }),
     );
+
+    // A justfile already open when this registers — typically one restored
+    // from a previous session — is exactly as real a signal as one opened
+    // afterwards through `onDidOpenTextDocument` above; without this, a user
+    // who reloads a window with a justfile already open sees no status until
+    // they take some further action. `textDocuments` is an in-memory list, so
+    // finding it here is free, but the actual spawn must still wait for the
+    // current call stack to unwind — starting it inline would run inside
+    // `activate()`'s own frame, which AGENTS.md invariant 5 forbids. This is
+    // not the same as the activation-driven detection that invariant rules
+    // out: that fired unconditionally on every activation regardless of
+    // whether a justfile was ever open; this fires only when one genuinely
+    // is.
+    const alreadyOpen = vscode.workspace.textDocuments.find(
+        (document) => document.languageId === "just",
+    );
+    if (alreadyOpen !== undefined) {
+        void Promise.resolve().then(() => {
+            if (cached === undefined) {
+                void refresh(alreadyOpen.uri);
+            }
+        });
+    }
 
     context.subscriptions.push(
         vscode.commands.registerCommand(CHECK_COMMAND, async () => {

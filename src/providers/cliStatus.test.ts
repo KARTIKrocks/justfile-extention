@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { recorded, resetStub, type StatusBarItem, window } from "../../test/stubs/vscode.js";
+import {
+    recorded,
+    resetStub,
+    type StatusBarItem,
+    window,
+    workspace,
+} from "../../test/stubs/vscode.js";
 import type { Detection } from "../cli/detect.js";
 import { registerCliStatus } from "./cliStatus.js";
 
@@ -242,6 +248,41 @@ describe("refresh triggers", () => {
         // triggered another refresh.
         await openAJustfile();
         expect(item.text).toContain("1.58.0");
+    });
+
+    it("refreshes for a justfile that is already open at registration, not just one opened later", async () => {
+        // A window reload restores previously open editors without re-firing
+        // onDidOpenTextDocument for them from the extension's point of view
+        // in every host, so relying on that event alone would leave the
+        // status bar idle for a user who never touches anything.
+        workspace.textDocuments.push({ languageId: "just", uri: "file:///a/justfile" });
+        const context = contextOf();
+        registerCliStatus(context as never, detectSequence(SUPPORTED));
+        await Promise.resolve();
+        await Promise.resolve();
+        const item = recorded.statusBarItems.at(-1);
+        expect(item?.text).toContain("1.58.0");
+    });
+
+    it("ignores an already-open document with a different language", async () => {
+        workspace.textDocuments.push({ languageId: "plaintext", uri: "file:///a/notes.txt" });
+        const context = contextOf();
+        registerCliStatus(context as never, detectSequence(SUPPORTED));
+        await Promise.resolve();
+        await Promise.resolve();
+        const item = recorded.statusBarItems.at(-1);
+        expect(item?.text).not.toContain("1.58.0");
+    });
+
+    it("does not spawn detect synchronously even for a justfile already open at registration", () => {
+        workspace.textDocuments.push({ languageId: "just", uri: "file:///a/justfile" });
+        let called = false;
+        const detect = () => {
+            called = true;
+            return Promise.resolve(SUPPORTED);
+        };
+        registerCliStatus(contextOf() as never, detect);
+        expect(called).toBe(false);
     });
 });
 

@@ -196,7 +196,7 @@ export const recorded = {
     foldingRangeProviders: [] as RegisteredFoldingRangeProvider[],
     outputChannels: [] as { name: string; messages: string[]; disposed: boolean }[],
     onDidCloseTextDocument: new EventSource<{ uri: { toString(): string } }>(),
-    onDidOpenTextDocument: new EventSource<{ languageId: string; uri: unknown }>(),
+    onDidOpenTextDocument: new EventSource<TextDocumentStub>(),
     onDidGrantWorkspaceTrust: new EventSource<void>(),
     onDidChangeConfiguration: new EventSource<ConfigurationChangeEvent>(),
     statusBarItems: [] as StatusBarItem[],
@@ -227,6 +227,7 @@ export function resetStub(): void {
     recorded.config.clear();
     recorded.configurationScopes.length = 0;
     workspace.isTrusted = true;
+    workspace.textDocuments.length = 0;
     window.activeTextEditor = undefined;
 }
 
@@ -310,8 +311,14 @@ interface Configuration {
     get<T>(key: string, fallback: T): T;
 }
 
+interface TextDocumentStub {
+    languageId: string;
+    uri: unknown;
+}
+
 export const workspace = {
     isTrusted: true,
+    textDocuments: [] as TextDocumentStub[],
     onDidCloseTextDocument: recorded.onDidCloseTextDocument.register,
     onDidOpenTextDocument: recorded.onDidOpenTextDocument.register,
     onDidGrantWorkspaceTrust: recorded.onDidGrantWorkspaceTrust.register,
