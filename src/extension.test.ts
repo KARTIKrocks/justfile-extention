@@ -61,10 +61,11 @@ describe("activate", () => {
 
     it("listens for trust being granted rather than reading it once", () => {
         // Trust can arrive mid-session, so a value captured at activation would
-        // leave Tier 2 dark until the window reloaded. Two listeners: the
-        // output-log message here, and the CLI status's own refresh.
+        // leave Tier 2 dark until the window reloaded. Three listeners: the
+        // output-log message here, the CLI status's own refresh, and the
+        // CodeLens refresh that swaps the trust lens for Run.
         activate(contextOf() as never);
-        expect(recorded.onDidGrantWorkspaceTrust.listeners).toHaveLength(2);
+        expect(recorded.onDidGrantWorkspaceTrust.listeners).toHaveLength(3);
         expect(() => recorded.onDidGrantWorkspaceTrust.emit(undefined)).not.toThrow();
     });
 

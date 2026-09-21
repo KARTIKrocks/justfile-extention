@@ -1,7 +1,11 @@
 {
   "configuration.title": "Justfile",
-  "just.executablePath.description": "Path to the `just` executable. Ignored in an untrusted workspace, where `just` is never run at all — see the extension's Workspace Trust support.",
+  "just.executablePath.description": "Path to the `just` executable. Ignored in an untrusted workspace, where `just` is never run at all \u2014 see the extension's Workspace Trust support.",
   "just.checkInstallation.title": "Check Just Installation",
   "just.showVersion.title": "Show Just Version",
-  "just.configureExecutable.title": "Configure Just Executable"
+  "just.configureExecutable.title": "Configure Just Executable",
+  "just.codeLens.enabled.description": "Show **Run** and **Run with Arguments** above each recipe.",
+  "just.runRecipe.title": "Run Recipe",
+  "just.runRecipeWithArguments.title": "Run Recipe with Arguments",
+  "just.taskDefinition.recipe.description": "The recipe this task runs."
 }

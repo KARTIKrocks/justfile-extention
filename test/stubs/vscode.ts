@@ -144,6 +144,91 @@ export class SemanticTokensBuilder {
     }
 }
 
+export class EventEmitter<T> {
+    readonly #source = new EventSource<T>();
+    readonly event = this.#source.register;
+
+    fire(event: T): void {
+        this.#source.emit(event);
+    }
+
+    dispose(): void {}
+}
+
+export interface Command {
+    readonly title: string;
+    readonly command: string;
+    readonly tooltip?: string;
+    readonly arguments?: unknown[];
+}
+
+export class CodeLens {
+    readonly range: Range;
+    readonly command: Command | undefined;
+
+    constructor(range: Range, command?: Command) {
+        this.range = range;
+        this.command = command;
+    }
+}
+
+export const ShellQuoting = { Escape: 1, Strong: 2, Weak: 3 } as const;
+export const TaskScope = { Global: 1, Workspace: 2 } as const;
+export const TaskRevealKind = { Always: 1, Silent: 2, Never: 3 } as const;
+export const TaskPanelKind = { Shared: 1, Dedicated: 2, New: 3 } as const;
+
+export interface ShellQuotedString {
+    readonly value: string;
+    readonly quoting: number;
+}
+
+export class ShellExecution {
+    readonly command: string;
+    readonly args: readonly (string | ShellQuotedString)[];
+    readonly options: { cwd?: string } | undefined;
+
+    constructor(
+        command: string,
+        args: readonly (string | ShellQuotedString)[],
+        options?: { cwd?: string },
+    ) {
+        this.command = command;
+        this.args = args;
+        this.options = options;
+    }
+}
+
+export class Task {
+    readonly definition: { type: string; [key: string]: unknown };
+    readonly scope: unknown;
+    readonly name: string;
+    readonly source: string;
+    readonly execution: ShellExecution;
+    presentationOptions: Record<string, unknown> = {};
+
+    constructor(
+        definition: { type: string; [key: string]: unknown },
+        scope: unknown,
+        name: string,
+        source: string,
+        execution: ShellExecution,
+    ) {
+        this.definition = definition;
+        this.scope = scope;
+        this.name = name;
+        this.source = source;
+        this.execution = execution;
+    }
+}
+
+export interface RegisteredCodeLensProvider {
+    readonly selector: unknown;
+    readonly provider: {
+        provideCodeLenses(document: unknown): unknown;
+        onDidChangeCodeLenses?: (listener: () => void) => Disposable;
+    };
+}
+
 export interface RegisteredProvider {
     readonly selector: unknown;
     readonly provider: { provideDocumentSemanticTokens(document: unknown): unknown };
@@ -194,6 +279,14 @@ export const recorded = {
     semanticTokenProviders: [] as RegisteredProvider[],
     documentSymbolProviders: [] as RegisteredSymbolProvider[],
     foldingRangeProviders: [] as RegisteredFoldingRangeProvider[],
+    codeLensProviders: [] as RegisteredCodeLensProvider[],
+    executedTasks: [] as Task[],
+    /** Answers `showQuickPick` gives, by label; `undefined` means cancelled. */
+    quickPickAnswers: [] as (string | undefined)[],
+    quickPickItems: [] as { label: string; description?: string; detail?: string }[][],
+    /** Answers `showInputBox` gives in order; `undefined` means cancelled. */
+    inputBoxAnswers: [] as (string | undefined)[],
+    inputBoxPrompts: [] as string[],
     outputChannels: [] as { name: string; messages: string[]; disposed: boolean }[],
     onDidCloseTextDocument: new EventSource<{ uri: { toString(): string } }>(),
     onDidOpenTextDocument: new EventSource<TextDocumentStub>(),
@@ -214,6 +307,12 @@ export function resetStub(): void {
     recorded.semanticTokenProviders.length = 0;
     recorded.documentSymbolProviders.length = 0;
     recorded.foldingRangeProviders.length = 0;
+    recorded.codeLensProviders.length = 0;
+    recorded.executedTasks.length = 0;
+    recorded.quickPickAnswers.length = 0;
+    recorded.quickPickItems.length = 0;
+    recorded.inputBoxAnswers.length = 0;
+    recorded.inputBoxPrompts.length = 0;
     recorded.outputChannels.length = 0;
     recorded.onDidCloseTextDocument.listeners.length = 0;
     recorded.onDidOpenTextDocument.listeners.length = 0;
@@ -229,6 +328,8 @@ export function resetStub(): void {
     workspace.isTrusted = true;
     workspace.textDocuments.length = 0;
     window.activeTextEditor = undefined;
+    workspace.workspaceFolder = undefined;
+    workspace.openDocuments.clear();
 }
 
 export const languages = {
@@ -256,10 +357,25 @@ export const languages = {
         recorded.foldingRangeProviders.push({ selector, provider });
         return { dispose: () => {} };
     },
+
+    registerCodeLensProvider(
+        selector: unknown,
+        provider: RegisteredCodeLensProvider["provider"],
+    ): Disposable {
+        recorded.codeLensProviders.push({ selector, provider });
+        return { dispose: () => {} };
+    },
+};
+
+export const tasks = {
+    executeTask(task: Task): Promise<{ task: Task; terminate(): void }> {
+        recorded.executedTasks.push(task);
+        return Promise.resolve({ task, terminate: () => {} });
+    },
 };
 
 interface TextEditorStub {
-    document: { uri: unknown };
+    document: TextDocumentStub;
 }
 
 export const window = {
@@ -288,6 +404,23 @@ export const window = {
         return Promise.resolve(undefined);
     },
 
+    showQuickPick<T extends { label: string }>(
+        items: readonly T[],
+        _options?: unknown,
+    ): Promise<T | undefined> {
+        recorded.quickPickItems.push(items.map((item) => ({ ...item })));
+        const answer = recorded.quickPickAnswers.shift();
+        return Promise.resolve(items.find((item) => item.label === answer));
+    },
+
+    showInputBox(options?: { prompt?: string }): Promise<string | undefined> {
+        recorded.inputBoxPrompts.push(options?.prompt ?? "");
+        if (recorded.inputBoxAnswers.length === 0) {
+            throw new Error("showInputBox called with no scripted answer left");
+        }
+        return Promise.resolve(recorded.inputBoxAnswers.shift());
+    },
+
     showInformationMessage(message: string, ..._items: string[]): Promise<string | undefined> {
         recorded.infoMessages.push(message);
         return Promise.resolve(undefined);
@@ -311,14 +444,35 @@ interface Configuration {
     get<T>(key: string, fallback: T): T;
 }
 
-interface TextDocumentStub {
-    languageId: string;
+export interface TextDocumentStub {
+    languageId?: string;
     uri: unknown;
+    version?: number;
+    isDirty?: boolean;
+    getText?(): string;
+    save?(): Promise<boolean>;
+    positionAt?(offset: number): Position;
 }
 
 export const workspace = {
     isTrusted: true,
     textDocuments: [] as TextDocumentStub[],
+    /** What `getWorkspaceFolder` answers, for every uri. */
+    workspaceFolder: undefined as { uri: unknown; name: string; index: number } | undefined,
+    /** Documents `openTextDocument` can hand back, by `uri.toString()`. */
+    openDocuments: new Map<string, TextDocumentStub>(),
+
+    getWorkspaceFolder(_uri: unknown) {
+        return workspace.workspaceFolder;
+    },
+
+    openTextDocument(uri: unknown): Promise<TextDocumentStub> {
+        const document = workspace.openDocuments.get(String(uri));
+        if (document === undefined) {
+            return Promise.reject(new Error(`no stub document for ${String(uri)}`));
+        }
+        return Promise.resolve(document);
+    },
     onDidCloseTextDocument: recorded.onDidCloseTextDocument.register,
     onDidOpenTextDocument: recorded.onDidOpenTextDocument.register,
     onDidGrantWorkspaceTrust: recorded.onDidGrantWorkspaceTrust.register,

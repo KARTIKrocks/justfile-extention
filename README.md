@@ -2,10 +2,11 @@
 
 A VS Code extension for [`just`](https://github.com/casey/just), the command runner.
 
-> **Status: pre-release.** Language support is built and tested — syntax highlighting, semantic
-> tokens, the document outline, folding, and CLI detection with a status bar. Recipe execution,
-> completion, hover, diagnostics and the rest of the product are not yet built. Install the
-> pre-release channel to follow along; stable releases start with the MVP.
+> **Status: pre-release.** Language support and recipe running are built and tested — syntax
+> highlighting, semantic tokens, the document outline, folding, CLI detection with a status bar,
+> and a **Run** button above every recipe. Completion, hover, diagnostics and the rest of the
+> product are not yet built. Install the pre-release channel to follow along; stable releases
+> start with the MVP.
 
 ## Install
 
@@ -30,8 +31,12 @@ code --install-extension KartikRajput.just-lang --pre-release
 * Folding for recipe bodies, multi-line expressions and comment blocks
 * Status bar showing the detected `just` version, with commands to check the installation and
   point the extension at a different executable
+* **▶ Run** above every recipe, and **Run with Arguments…** when it has parameters. Runs
+  `just <recipe>` as a task in the integrated terminal, asking for required parameters first.
+  Also `Just: Run Recipe` in the Command Palette.
 
-None of this runs `just`, except the status bar — and that waits for Workspace Trust.
+Only the last two run `just` — and both wait for Workspace Trust. Everything else is served by
+the in-process parser and works in untrusted workspaces and without `just` installed.
 
 ## Design
 

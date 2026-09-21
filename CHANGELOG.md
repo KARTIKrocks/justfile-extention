@@ -9,6 +9,18 @@ one, following the Marketplace's pre-release convention.
 
 ## [Unreleased]
 
+### Added
+
+* **Run recipes.** A `▶ Run` CodeLens above every recipe, plus **Run with Arguments…** when
+  the recipe has parameters, and `Just: Run Recipe` / `Just: Run Recipe with Arguments` in
+  the Command Palette with a recipe picker. Required parameters are asked for; variadic ones
+  (`+`, `*`) one value at a time. The run is a VS Code task in the integrated terminal —
+  arguments go through as an argv array, quoted by VS Code for whatever shell the terminal
+  uses, never spliced into a command string — so **Rerun Last Task**, terminal reuse and
+  cancellation all work. Nothing runs in an untrusted workspace: the lens says so and opens
+  the trust dialog instead.
+* `just.codeLens.enabled` to turn the lenses off.
+
 ### Fixed
 
 * Doc comments now match `just` exactly: whitespace is trimmed at both ends, only one `#`

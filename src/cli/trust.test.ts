@@ -7,8 +7,8 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetStub, workspace } from "../../test/stubs/vscode.js";
-import { runJust } from "./trust.js";
+import { recorded, resetStub, TaskScope, workspace } from "../../test/stubs/vscode.js";
+import { runJust, startJustTask } from "./trust.js";
 
 beforeEach(resetStub);
 
@@ -33,6 +33,41 @@ describe("runJust", () => {
             ok: false,
             reason: "spawn-error",
             message: expect.any(String),
+        });
+    });
+});
+
+describe("startJustTask", () => {
+    const options = { cwd: "/w", scope: TaskScope.Workspace, label: "just build", recipe: "build" };
+
+    it("refuses to start a task when the workspace is untrusted", async () => {
+        workspace.isTrusted = false;
+        const outcome = await startJustTask("just", ["build"], options);
+        expect(outcome).toEqual({ ok: false, reason: "untrusted" });
+        expect(recorded.executedTasks).toEqual([]);
+    });
+
+    it("hands VS Code an argv, every element strongly quoted", async () => {
+        const outcome = await startJustTask("just", ["build", "two words"], options);
+        expect(outcome.ok).toBe(true);
+        const task = recorded.executedTasks[0];
+        expect(task?.execution.command).toBe("just");
+        expect(task?.execution.args).toEqual([
+            { value: "build", quoting: 2 },
+            { value: "two words", quoting: 2 },
+        ]);
+        expect(task?.execution.options?.cwd).toBe("/w");
+        expect(task?.definition).toEqual({ type: "just", recipe: "build" });
+        expect(task?.name).toBe("just build");
+        expect(task?.source).toBe("just");
+    });
+
+    it("reveals the terminal and shares a panel between runs", async () => {
+        await startJustTask("just", ["build"], options);
+        expect(recorded.executedTasks[0]?.presentationOptions).toMatchObject({
+            reveal: 1,
+            panel: 1,
+            showReuseMessage: true,
         });
     });
 });
