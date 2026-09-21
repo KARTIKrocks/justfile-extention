@@ -1,0 +1,138 @@
+{
+  "name": "justfile",
+  "displayName": "Justfile",
+  "description": "Language support and recipe running for just, the command runner.",
+  "version": "0.0.1",
+  "publisher": "PUBLISHER_TO_BE_REGISTERED",
+  "license": "MIT",
+  "private": true,
+  "author": {
+    "name": "Kartik Rajput"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KARTIKrocks/justfile.git"
+  },
+  "bugs": {
+    "url": "https://github.com/KARTIKrocks/justfile/issues"
+  },
+  "engines": {
+    "vscode": "^1.101.0",
+    "node": ">=24"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "just",
+    "justfile",
+    "command runner",
+    "task runner",
+    "make"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Syntax highlighting, outline and navigation work in untrusted workspaces. Diagnostics, formatting and recipe execution require trust, because just evaluates backticks and shell() when it reads a Justfile."
+    },
+    "virtualWorkspaces": {
+      "supported": "limited",
+      "description": "Editing features work in virtual workspaces. Anything that runs the just binary does not."
+    }
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:**/{justfile,Justfile,JUSTFILE,.justfile,.Justfile}",
+    "workspaceContains:**/*.just"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "just",
+        "aliases": [
+          "Just",
+          "Justfile",
+          "just"
+        ],
+        "extensions": [
+          ".just",
+          ".justfile"
+        ],
+        "filenames": [
+          "justfile",
+          "Justfile",
+          "JUSTFILE",
+          ".justfile",
+          ".Justfile"
+        ],
+        "filenamePatterns": [
+          "**/*.just"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "just",
+        "scopeName": "source.just",
+        "path": "./syntaxes/just.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "just.executablePath": {
+          "type": "string",
+          "default": "just",
+          "markdownDescription": "%just.executablePath.description%",
+          "scope": "resource"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "just.checkInstallation",
+        "title": "%just.checkInstallation.title%",
+        "category": "Just"
+      },
+      {
+        "command": "just.showVersion",
+        "title": "%just.showVersion.title%",
+        "category": "Just"
+      },
+      {
+        "command": "just.configureExecutable",
+        "title": "%just.configureExecutable.title%",
+        "category": "Just"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test:unit": "vitest run --project unit",
+    "test:diff": "vitest run --project differential",
+    "vscode:prepublish": "node esbuild.mjs --production"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/node": "^22.20.3",
+    "@types/vscode": "^1.138.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

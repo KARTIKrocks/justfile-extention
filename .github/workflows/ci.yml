@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, lint, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit
+
+  differential:
+    name: Differential vs just ${{ matrix.just }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.27.0 is the declared minimum and 1.58.0 catches upstream changes
+        # early. 1.34.0 and 1.35.0 straddle the release where `--dump` began
+        # reporting `private` on assignments, which is exactly the kind of
+        # shape change that breaks the comparison silently. 1.31.0 is where
+        # modules became stable, which the module fixture gates on.
+        just: ["1.27.0", "1.31.0", "1.34.0", "1.35.0", "1.40.0", "1.58.0"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: extractions/setup-just@v3
+        with:
+          just-version: ${{ matrix.just }}
+      - run: just --version
+      - run: npm ci
+      - run: npm run test:diff
+
+  bundle:
+    name: Bundle size and dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Production bundle (fails over the 300 KB budget)
+        run: node esbuild.mjs --production
+      - name: Assert no runtime dependencies
+        run: |
+          deps=$(node -p "Object.keys(require('./package.json').dependencies ?? {}).length")
+          if [ "$deps" -ne 0 ]; then
+            echo "::error::The extension must have zero runtime dependencies, found $deps"
+            exit 1
+          fi

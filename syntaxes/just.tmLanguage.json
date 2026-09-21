@@ -1,0 +1,693 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Justfile",
+  "scopeName": "source.just",
+  "patterns": [
+    {
+      "include": "#shebang-file"
+    },
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#attribute"
+    },
+    {
+      "include": "#setting"
+    },
+    {
+      "include": "#alias"
+    },
+    {
+      "include": "#import"
+    },
+    {
+      "include": "#module"
+    },
+    {
+      "include": "#exported-assignment"
+    },
+    {
+      "include": "#assignment"
+    },
+    {
+      "include": "#recipe"
+    }
+  ],
+  "repository": {
+    "shebang-file": {
+      "comment": "Only a justfile's very first line, where `#!/usr/bin/env just --justfile` makes the file directly executable. A `#!` on any other line is a recipe's interpreter and is handled inside the recipe body.",
+      "name": "comment.line.shebang.just",
+      "match": "\\A#!.*$"
+    },
+    "comment": {
+      "comment": "A comment runs to end of line. Which comment documents which recipe is a whole-file question \u2014 TextMate only ever sees one line \u2014 so doc comments are left to the semantic token provider, where the parser already knows the answer.",
+      "name": "comment.line.number-sign.just",
+      "match": "(#).*$",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.comment.just"
+        }
+      }
+    },
+    "attribute": {
+      "comment": "Attribute names verified against just 1.58.0 by feeding each candidate to the CLI and keeping the ones it did not reject as `unknown attribute`.",
+      "begin": "^[ \\t]*(\\[)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.attribute.begin.just"
+        }
+      },
+      "end": "(\\])|$",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.attribute.end.just"
+        }
+      },
+      "name": "meta.attribute.just",
+      "patterns": [
+        {
+          "match": "(?<![A-Za-z0-9_-])(working-directory|positional-arguments|no-exit-message|exit-message|extension|dragonfly|no-quiet|metadata|openbsd|parallel|private|confirm|default|freebsd|android|netbsd|script|group|linux|macos|no-cd|shell|unix|windows|doc|env)(?![A-Za-z0-9_-])",
+          "name": "entity.other.attribute-name.just"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#expression"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.attribute.just"
+        }
+      ]
+    },
+    "setting": {
+      "comment": "Setting names verified against just 1.58.0: the 27 the JSON dump reports for an empty justfile, plus `script-interpreter`, which the dump does not surface. Guarded against a recipe whose name happens to be this keyword \u2014 none of them is reserved, so `set shell:` is a recipe named `set` with a parameter called `shell`, and `mod p:` a recipe named `mod`. The lookahead rejects the line when it is a recipe header \u2014 a name, then a bare `:` that is not `:=`, with quoted and backticked runs skipped, and the scan stopping at a `#` so a colon in a trailing comment does not count \u2014 a URL in one is otherwise enough to hide the keyword.",
+      "begin": "^[ \\t]*(?![A-Za-z_][A-Za-z0-9_-]*(?:[^:#\\n'\\\"`]|'[^'\\n]*'|\\\"[^\\\"\\n]*\\\"|`[^`\\n]*`)*:(?!=))(set)[ \\t]+(allow-duplicate-variables|allow-duplicate-recipes|positional-arguments|windows-powershell|script-interpreter|working-directory|no-exit-message|dotenv-filename|dotenv-override|dotenv-required|dotenv-command|ignore-comments|windows-shell|default-script|dotenv-path|dotenv-load|default-list|indentation|fallback|tempdir|unstable|export|guards|lists|no-cd|quiet|shell|lazy)(?![A-Za-z0-9_-])",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.set.just"
+        },
+        "2": {
+          "name": "support.type.property-name.just"
+        }
+      },
+      "end": "(?<![\\\\\\n])$|(?=^[ \\t]*(?:\\[[A-Za-z_]|(?:set|alias|export|unexport)[ \\t]|import\\??[ \\t]|mod(?:[ \\t]|\\?[ \\t]*[A-Za-z_])|@?[A-Za-z_][A-Za-z0-9_-]*[ \\t]*:=|@?[A-Za-z_][A-Za-z0-9_-]*(?:[^:\\n\\'\"]|\\'[^\\'\\n]*\\'|\"[^\"\\n]*\")*:(?!=)))",
+      "name": "meta.setting.just",
+      "patterns": [
+        {
+          "include": "#continuation"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "match": ":=",
+          "name": "keyword.operator.assignment.just"
+        },
+        {
+          "include": "#boolean"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "alias": {
+      "match": "^[ \\t]*(alias)[ \\t]+([A-Za-z_][A-Za-z0-9_-]*)[ \\t]*(:=)[ \\t]*([A-Za-z_][A-Za-z0-9_-]*)?",
+      "captures": {
+        "1": {
+          "name": "keyword.other.alias.just"
+        },
+        "2": {
+          "name": "entity.name.function.alias.just"
+        },
+        "3": {
+          "name": "keyword.operator.assignment.just"
+        },
+        "4": {
+          "name": "entity.name.function.just"
+        }
+      }
+    },
+    "import": {
+      "comment": "`import?` is an optional import: a missing file is not an error. Guarded against a recipe whose name happens to be this keyword \u2014 none of them is reserved, so `import:` and `import p:` are recipes named `import`. The lookahead rejects the line when it is a recipe header: a name, then a bare `:` that is not `:=`, with quoted and backticked runs skipped, and the scan stopping at a `#` so a colon in a trailing comment does not count \u2014 a URL in one is otherwise enough to hide the keyword.",
+      "begin": "^[ \\t]*(?![A-Za-z_][A-Za-z0-9_-]*(?:[^:#\\n'\\\"`]|'[^'\\n]*'|\\\"[^\\\"\\n]*\\\"|`[^`\\n]*`)*:(?!=))(import)(\\?)?[ \\t]",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.import.just"
+        },
+        "2": {
+          "name": "keyword.operator.optional.just"
+        }
+      },
+      "end": "$",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#string"
+        }
+      ]
+    },
+    "module": {
+      "comment": "`mod name`, `mod name \"path\"`, and the optional `mod? name` \u2014 which just also accepts written tight, as `mod?name`. Guarded against a recipe whose name happens to be this keyword \u2014 none of them is reserved, so `set shell:` is a recipe named `set` with a parameter called `shell`, and `mod p:` a recipe named `mod`. The lookahead rejects the line when it is a recipe header \u2014 a name, then a bare `:` that is not `:=`, with quoted and backticked runs skipped, and the scan stopping at a `#` so a colon in a trailing comment does not count \u2014 a URL in one is otherwise enough to hide the keyword.",
+      "begin": "^[ \\t]*(?![A-Za-z_][A-Za-z0-9_-]*(?:[^:#\\n'\\\"`]|'[^'\\n]*'|\\\"[^\\\"\\n]*\\\"|`[^`\\n]*`)*:(?!=))(mod)(?:(\\?)[ \\t]*|[ \\t]+)([A-Za-z_][A-Za-z0-9_-]*)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.import.module.just"
+        },
+        "2": {
+          "name": "keyword.operator.optional.just"
+        },
+        "3": {
+          "name": "entity.name.namespace.just"
+        }
+      },
+      "end": "$",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#string"
+        }
+      ]
+    },
+    "exported-assignment": {
+      "comment": "`unexport` takes a bare name; `export` takes a full assignment.",
+      "patterns": [
+        {
+          "match": "^[ \\t]*(unexport)[ \\t]+([A-Za-z_][A-Za-z0-9_-]*)",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.export.just"
+            },
+            "2": {
+              "name": "variable.other.assignment.just"
+            }
+          }
+        },
+        {
+          "begin": "^[ \\t]*(export)[ \\t]+([A-Za-z_][A-Za-z0-9_-]*)[ \\t]*(:=)",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.modifier.export.just"
+            },
+            "2": {
+              "name": "variable.other.assignment.just"
+            },
+            "3": {
+              "name": "keyword.operator.assignment.just"
+            }
+          },
+          "end": "(?<![\\\\\\n])$|(?=^[ \\t]*(?:\\[[A-Za-z_]|(?:set|alias|export|unexport)[ \\t]|import\\??[ \\t]|mod(?:[ \\t]|\\?[ \\t]*[A-Za-z_])|@?[A-Za-z_][A-Za-z0-9_-]*[ \\t]*:=|@?[A-Za-z_][A-Za-z0-9_-]*(?:[^:\\n\\'\"]|\\'[^\\'\\n]*\\'|\"[^\"\\n]*\")*:(?!=)))",
+          "name": "meta.assignment.just",
+          "patterns": [
+            {
+              "include": "#continuation"
+            },
+            {
+              "include": "#comment"
+            },
+            {
+              "include": "#expression"
+            }
+          ]
+        }
+      ]
+    },
+    "assignment": {
+      "begin": "^[ \\t]*([A-Za-z_][A-Za-z0-9_-]*)[ \\t]*(:=)",
+      "beginCaptures": {
+        "1": {
+          "name": "variable.other.assignment.just"
+        },
+        "2": {
+          "name": "keyword.operator.assignment.just"
+        }
+      },
+      "end": "(?<![\\\\\\n])$|(?=^[ \\t]*(?:\\[[A-Za-z_]|(?:set|alias|export|unexport)[ \\t]|import\\??[ \\t]|mod(?:[ \\t]|\\?[ \\t]*[A-Za-z_])|@?[A-Za-z_][A-Za-z0-9_-]*[ \\t]*:=|@?[A-Za-z_][A-Za-z0-9_-]*(?:[^:\\n\\'\"]|\\'[^\\'\\n]*\\'|\"[^\"\\n]*\")*:(?!=)))",
+      "name": "meta.assignment.just",
+      "patterns": [
+        {
+          "include": "#continuation"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "recipe": {
+      "comment": "The whole header line is consumed by `begin`, so the block's own patterns only ever see body lines. The body runs until a line starts in column 0, which is how just delimits it.",
+      "name": "meta.recipe.just",
+      "begin": "^(@)?([A-Za-z_][A-Za-z0-9_-]*)((?:[^:\\n'\"]|'[^'\\n]*'|\"[^\"\\n]*\")*)(:)(?!=)([^\\n]*)$",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.operator.quiet.just"
+        },
+        "2": {
+          "name": "entity.name.function.just"
+        },
+        "3": {
+          "patterns": [
+            {
+              "include": "#parameters"
+            }
+          ]
+        },
+        "4": {
+          "name": "punctuation.separator.recipe.just"
+        },
+        "5": {
+          "patterns": [
+            {
+              "include": "#dependencies"
+            }
+          ]
+        }
+      },
+      "end": "^(?=\\S)",
+      "patterns": [
+        {
+          "include": "#recipe-body"
+        }
+      ]
+    },
+    "recipe-body": {
+      "patterns": [
+        {
+          "comment": "A shebang on a recipe's first body line selects the interpreter for the whole recipe.",
+          "name": "comment.line.shebang.just",
+          "match": "^[ \\t]+(#!).*$",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.comment.shebang.just"
+            }
+          }
+        },
+        {
+          "comment": "Only a whole-line `#` is treated as a comment. A `#` mid-line belongs to the shell, and guessing at shell quoting here would mis-colour working recipes.",
+          "name": "comment.line.number-sign.just",
+          "match": "^[ \\t]+(#).*$",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.comment.just"
+            }
+          }
+        },
+        {
+          "match": "^[ \\t]+(@)?(-)?",
+          "captures": {
+            "1": {
+              "name": "keyword.operator.quiet.just"
+            },
+            "2": {
+              "name": "keyword.operator.ignore-error.just"
+            }
+          }
+        },
+        {
+          "include": "#interpolation"
+        },
+        {
+          "include": "#continuation"
+        }
+      ]
+    },
+    "parameters": {
+      "comment": "`$` exports the parameter, `*` and `+` mark it variadic, and `=` introduces a default.",
+      "patterns": [
+        {
+          "include": "#string"
+        },
+        {
+          "match": "(?<![=A-Za-z0-9_-])(\\$)?([*+])?([A-Za-z_][A-Za-z0-9_-]*)",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.export.just"
+            },
+            "2": {
+              "name": "keyword.operator.variadic.just"
+            },
+            "3": {
+              "name": "variable.parameter.just"
+            }
+          }
+        },
+        {
+          "match": "=",
+          "name": "keyword.operator.assignment.default.just"
+        },
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "dependencies": {
+      "comment": "Dependencies after the colon, including `&&` for the ones that run after the recipe body, and parenthesised dependencies that take arguments.",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "match": "&&",
+          "name": "keyword.operator.logical.just"
+        },
+        {
+          "comment": "A dependency with arguments. The name is a recipe; everything after it is an expression, and colouring those as recipes too would make the colour useless for telling them apart.",
+          "begin": "(\\()[ \\t]*([A-Za-z_][A-Za-z0-9_-]*)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.dependency.just"
+            },
+            "2": {
+              "name": "entity.name.function.just"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.dependency.just"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#expression"
+            }
+          ]
+        },
+        {
+          "match": "[A-Za-z_][A-Za-z0-9_-]*",
+          "name": "entity.name.function.just"
+        }
+      ]
+    },
+    "interpolation": {
+      "name": "meta.interpolation.just",
+      "begin": "\\{\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.interpolation.begin.just"
+        }
+      },
+      "end": "\\}\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.interpolation.end.just"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "expression": {
+      "patterns": [
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#conditional"
+        },
+        {
+          "include": "#function-call"
+        },
+        {
+          "include": "#group-paren"
+        },
+        {
+          "include": "#group-bracket"
+        },
+        {
+          "include": "#group-brace"
+        },
+        {
+          "include": "#operator"
+        },
+        {
+          "include": "#punctuation"
+        },
+        {
+          "include": "#variable"
+        }
+      ]
+    },
+    "conditional": {
+      "match": "(?<![A-Za-z0-9_-])(if|else)(?![A-Za-z0-9_-])",
+      "name": "keyword.control.conditional.just"
+    },
+    "function-call": {
+      "comment": "Any name applied to arguments. The built-in function table lands with hover and signature help; enumerating the names here too would be a second copy to keep in sync, and a misspelled call is still a call.",
+      "match": "([A-Za-z_][A-Za-z0-9_-]*)(?=[ \\t]*\\()",
+      "captures": {
+        "1": {
+          "name": "support.function.just"
+        }
+      }
+    },
+    "operator": {
+      "patterns": [
+        {
+          "match": "(==|!=|=~)",
+          "name": "keyword.operator.comparison.just"
+        },
+        {
+          "match": "&&",
+          "name": "keyword.operator.logical.just"
+        },
+        {
+          "comment": "`/` joins paths, `+` concatenates, and `?` makes an import or module optional.",
+          "match": "[/+?]",
+          "name": "keyword.operator.just"
+        }
+      ]
+    },
+    "punctuation": {
+      "match": ",",
+      "name": "punctuation.separator.just"
+    },
+    "variable": {
+      "match": "(?<![A-Za-z0-9_-])[A-Za-z_][A-Za-z0-9_-]*(?![A-Za-z0-9_-])",
+      "name": "variable.other.just"
+    },
+    "string": {
+      "comment": "Triple-delimited forms must be tried first, or the single-character rules claim their opening delimiter.",
+      "patterns": [
+        {
+          "include": "#string-triple-double"
+        },
+        {
+          "include": "#string-triple-single"
+        },
+        {
+          "include": "#backtick-triple"
+        },
+        {
+          "include": "#string-double"
+        },
+        {
+          "include": "#string-single"
+        },
+        {
+          "include": "#backtick"
+        }
+      ]
+    },
+    "string-triple-double": {
+      "name": "string.quoted.triple.double.just",
+      "begin": "\"\"\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.just"
+        }
+      },
+      "end": "\"\"\"",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.just"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#escape"
+        }
+      ]
+    },
+    "string-triple-single": {
+      "comment": "Raw: no escape processing at all.",
+      "name": "string.quoted.triple.single.just",
+      "begin": "'''",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.just"
+        }
+      },
+      "end": "'''",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.just"
+        }
+      }
+    },
+    "string-double": {
+      "name": "string.quoted.double.just",
+      "begin": "\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.just"
+        }
+      },
+      "end": "\"",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.just"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#escape"
+        }
+      ]
+    },
+    "string-single": {
+      "comment": "Raw: no escape processing at all.",
+      "name": "string.quoted.single.just",
+      "begin": "'",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.just"
+        }
+      },
+      "end": "'",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.just"
+        }
+      }
+    },
+    "backtick-triple": {
+      "comment": "just runs backticks when it reads the file, which is why Tier 2 needs a trusted workspace.",
+      "name": "string.interpolated.backtick.just",
+      "begin": "```",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.just"
+        }
+      },
+      "end": "```",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.just"
+        }
+      }
+    },
+    "backtick": {
+      "name": "string.interpolated.backtick.just",
+      "begin": "`",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.just"
+        }
+      },
+      "end": "`",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.just"
+        }
+      }
+    },
+    "escape": {
+      "comment": "The escapes just resolves in a cooked string: \\n \\r \\t \\\" \\\\ \\u{...} and a trailing backslash that continues the line. Anything else is left unscoped on purpose \u2014 just rejects unknown escapes, and reporting that is Tier 2's job, not a colour.",
+      "patterns": [
+        {
+          "name": "constant.character.escape.just",
+          "match": "\\\\u\\{[0-9A-Fa-f]{1,6}\\}"
+        },
+        {
+          "name": "constant.character.escape.just",
+          "match": "\\\\[nrt\"\\\\]"
+        },
+        {
+          "name": "punctuation.separator.continuation.just",
+          "match": "\\\\$"
+        }
+      ]
+    },
+    "group-paren": {
+      "comment": "A bracketed group holds the parent expression open across lines: while this rule is on the stack the parent's end-of-line is not tested, which is how a multi-line array or a parenthesised expression keeps its highlighting.",
+      "begin": "\\(",
+      "end": "\\)|(?=^[ \\t]*(?:\\[[A-Za-z_]|(?:set|alias|export|unexport)[ \\t]|import\\??[ \\t]|mod(?:[ \\t]|\\?[ \\t]*[A-Za-z_])|@?[A-Za-z_][A-Za-z0-9_-]*[ \\t]*:=|@?[A-Za-z_][A-Za-z0-9_-]*(?:[^:\\n\\'\"]|\\'[^\\'\\n]*\\'|\"[^\"\\n]*\")*:(?!=)))",
+      "beginCaptures": {
+        "0": {
+          "name": "meta.brace.round.just"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "meta.brace.round.just"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "group-bracket": {
+      "comment": "A bracketed group holds the parent expression open across lines: while this rule is on the stack the parent's end-of-line is not tested, which is how a multi-line array or a parenthesised expression keeps its highlighting.",
+      "begin": "\\[",
+      "end": "\\]|(?=^[ \\t]*(?:\\[[A-Za-z_]|(?:set|alias|export|unexport)[ \\t]|import\\??[ \\t]|mod(?:[ \\t]|\\?[ \\t]*[A-Za-z_])|@?[A-Za-z_][A-Za-z0-9_-]*[ \\t]*:=|@?[A-Za-z_][A-Za-z0-9_-]*(?:[^:\\n\\'\"]|\\'[^\\'\\n]*\\'|\"[^\"\\n]*\")*:(?!=)))",
+      "beginCaptures": {
+        "0": {
+          "name": "meta.brace.square.just"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "meta.brace.square.just"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "group-brace": {
+      "comment": "A bracketed group holds the parent expression open across lines: while this rule is on the stack the parent's end-of-line is not tested, which is how a multi-line array or a parenthesised expression keeps its highlighting.",
+      "begin": "\\{",
+      "end": "\\}|(?=^[ \\t]*(?:\\[[A-Za-z_]|(?:set|alias|export|unexport)[ \\t]|import\\??[ \\t]|mod(?:[ \\t]|\\?[ \\t]*[A-Za-z_])|@?[A-Za-z_][A-Za-z0-9_-]*[ \\t]*:=|@?[A-Za-z_][A-Za-z0-9_-]*(?:[^:\\n\\'\"]|\\'[^\\'\\n]*\\'|\"[^\"\\n]*\")*:(?!=)))",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.block.just"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.block.just"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "boolean": {
+      "match": "(?<![A-Za-z0-9_-])(true|false)(?![A-Za-z0-9_-])",
+      "name": "constant.language.boolean.just"
+    },
+    "continuation": {
+      "comment": "A trailing backslash continues the line into the next one.",
+      "match": "\\\\$",
+      "name": "punctuation.separator.continuation.just"
+    }
+  }
+}

@@ -1,0 +1,75 @@
+name: Bug report
+description: Something in the extension behaves incorrectly
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: if the extension shows a **wrong error squiggle** on a Justfile that
+        `just` itself accepts, say so explicitly. That is a severity-1 defect for us and it
+        gets prioritised over almost everything else.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: justfile
+    attributes:
+      label: Minimal Justfile that reproduces it
+      description: The smallest file that shows the problem. This is the single most useful thing you can provide.
+      render: makefile
+    validations:
+      required: true
+
+  - type: input
+    id: just-version
+    attributes:
+      label: just version
+      description: Output of `just --version`
+      placeholder: just 1.58.0
+    validations:
+      required: true
+
+  - type: input
+    id: vscode-version
+    attributes:
+      label: VS Code version
+      placeholder: 1.85.0
+    validations:
+      required: true
+
+  - type: input
+    id: extension-version
+    attributes:
+      label: Extension version
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Linux, macOS, Windows, WSL, Remote SSH, Dev Container, Codespaces]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: trust
+    attributes:
+      label: Is the workspace trusted?
+      description: Many features are deliberately disabled in untrusted workspaces.
+      options: ["Trusted", "Untrusted", "Not sure"]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output panel logs
+      description: From the "Just" channel in the Output panel. Redact anything sensitive.
+      render: shell
