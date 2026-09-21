@@ -2,16 +2,19 @@ name: Release
 
 # Two ways in:
 #
-#   * Push a tag `vX.Y.Z` — publishes a stable release of that version.
-#   * Run the workflow by hand — publishes a pre-release from whatever ref you
-#     picked (normally main). Pre-releases are how the Phase 2 feature set ships
-#     before the MVP; stable releases wait for a tag.
+#   * Push a tag `vX.Y.Z` — publishes that version and creates a GitHub
+#     release with the .vsix attached. Every published version gets a tag.
+#   * Run the workflow by hand — publishes from whatever ref you picked, or
+#     with `dry_run` just builds the .vsix for inspection.
+#
+# The channel is decided by the version alone, never by how the workflow was
+# started: an odd minor (0.1.x, 0.3.x) is a pre-release, an even minor (0.2.x,
+# 1.0.x) is stable. That is the Marketplace's own convention for keeping the
+# two channels from colliding
+# (https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions).
 #
 # Both targets get the same .vsix: the Visual Studio Marketplace and Open VSX.
-# The version in package.json is the version that ships. The tag must match it,
-# and a pre-release must use an odd minor version, because that is the
-# convention the Marketplace uses to keep pre-release and stable channels from
-# colliding (https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions).
+# The version in package.json is the version that ships, and a tag must match it.
 
 on:
   push:
@@ -67,25 +70,17 @@ jobs:
         id: meta
         run: |
           version=$(node -p "require('./package.json').version")
-          minor=$(echo "$version" | cut -d. -f2)
-          if [ "${{ github.event_name }}" = "push" ]; then
-            tag="${GITHUB_REF_NAME#v}"
-            if [ "$tag" != "$version" ]; then
-              echo "::error::Tag v$tag does not match package.json version $version"
-              exit 1
-            fi
-            if [ $((minor % 2)) -ne 0 ]; then
-              echo "::error::Stable releases use an even minor version; $version is a pre-release number"
-              exit 1
-            fi
-            prerelease=false
-          else
-            if [ $((minor % 2)) -ne 1 ]; then
-              echo "::error::Pre-releases use an odd minor version; $version is a stable number"
-              exit 1
-            fi
-            prerelease=true
+          if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Version $version is not plain major.minor.patch; the Marketplace rejects suffixes"
+            exit 1
           fi
+          if [ "${{ github.event_name }}" = "push" ] && [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          minor=$(echo "$version" | cut -d. -f2)
+          if [ $((minor % 2)) -eq 1 ]; then prerelease=true; else prerelease=false; fi
+          echo "channel: $([ "$prerelease" = true ] && echo pre-release || echo stable) ($version)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           echo "vsix=just-lang-$version.vsix" >> "$GITHUB_OUTPUT"
@@ -151,7 +146,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "${{ needs.package.outputs.vsix }}" \
+          flag=""
+          if [ "${{ needs.package.outputs.prerelease }}" = "true" ]; then flag="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" "${{ needs.package.outputs.vsix }}" $flag \
             --title "v${{ needs.package.outputs.version }}" \
             --notes-from-tag \
             --verify-tag
