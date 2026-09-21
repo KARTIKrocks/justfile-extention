@@ -1,0 +1,31 @@
+{
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "description": "The architectural invariants this repository is built around, plus the TypeScript and tooling constraints. Read this before judging whether a change is correct — several patterns that look fine in ordinary TypeScript are wrong here."
+    },
+    {
+      "path": "SECURITY.md",
+      "description": "The threat model. Explains why just evaluates code at parse time and why reading a Justfile with the CLI is arbitrary code execution. Essential context for any change touching process spawning or workspace trust."
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "description": "Commit conventions, PR expectations, and the procedure for adding parser support for a new just construct."
+    },
+    {
+      "path": "test/differential/harness.ts",
+      "description": "The differential harness: how our parser output is reduced to a comparable shape and checked against `just --dump --dump-format json`. Reference when reviewing changes to the parser or the semantic model.",
+      "scope": ["src/parser/**", "src/model/**", "test/differential/**"]
+    },
+    {
+      "path": "src/parser/token.ts",
+      "description": "Token kinds and spans. Shows the frozen-object-plus-union idiom used throughout in place of enums.",
+      "scope": ["src/parser/**"]
+    },
+    {
+      "path": "src/cli/trust.ts",
+      "description": "The single trust-checked helper every `just` subprocess spawn must go through. The canonical implementation of the trust-gating rule described in SECURITY.md and rules.md — reference when reviewing any change that spawns a process or reads `just.executablePath`.",
+      "scope": ["src/**"]
+    }
+  ]
+}
