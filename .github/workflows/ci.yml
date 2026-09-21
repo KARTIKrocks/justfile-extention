@@ -46,7 +46,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
         with:
           just-version: ${{ matrix.just }}
       - run: just --version
