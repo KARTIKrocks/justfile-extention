@@ -1,5 +1,5 @@
 {
-  "name": "justfile",
+  "name": "just-lang",
   "displayName": "Justfile",
   "description": "Language support and recipe running for just, the command runner.",
   "version": "0.1.0",

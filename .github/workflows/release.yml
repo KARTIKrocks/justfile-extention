@@ -88,7 +88,7 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
-          echo "vsix=justfile-$version.vsix" >> "$GITHUB_OUTPUT"
+          echo "vsix=just-lang-$version.vsix" >> "$GITHUB_OUTPUT"
 
       # The whole CI gate, repeated here so nothing ships that CI never saw
       # green. The differential suite runs against the newest just in the CI
