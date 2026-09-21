@@ -9,6 +9,11 @@ one, following the Marketplace's pre-release convention.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-21
+
+Pre-release. Odd minor, as the channel rule above says; 0.2.x is reserved for the first
+stable release.
+
 ### Added
 
 * **Run recipes.** A `▶ Run` CodeLens above every recipe, plus **Run with Arguments…** when
@@ -54,6 +59,7 @@ untrusted workspaces — nothing in this release executes a Justfile.
   never runs at activation.
 * `just.executablePath` setting, ignored in untrusted workspaces.
 
-[Unreleased]: https://github.com/KARTIKrocks/justfile-extention/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/KARTIKrocks/justfile-extention/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/KARTIKrocks/justfile-extention/compare/v0.1.1...v0.3.0
 [0.1.1]: https://github.com/KARTIKrocks/justfile-extention/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/KARTIKrocks/justfile-extention/releases/tag/v0.1.0
