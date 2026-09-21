@@ -1,0 +1,44 @@
+# Everything not needed at runtime stays out of the .vsix. The package is the
+# bundle in dist/, the grammar, the language configuration, the manifest
+# strings, the icon, and the docs the Marketplace page links to.
+
+# Sources and tests — dist/extension.js is the only code that ships
+src/**
+test/**
+**/*.test.ts
+**/*.map
+
+# Toolchain
+node_modules/**
+.github/**
+.claude/**
+.greptile/**
+.vscode/**
+.vscode-test/**
+biome.json
+esbuild.mjs
+justfile
+tsconfig.json
+vitest.config.mts
+package-lock.json
+.editorconfig
+.gitattributes
+.gitignore
+.vscodeignore
+
+# Contributor docs — the Marketplace page shows README and CHANGELOG only
+AGENTS.md
+CLAUDE.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+RELEASING.md
+
+# Local scratch
+PRD.md
+PRD.md.bak
+*.bak
+*.log
+*.vsix
+coverage/**
+out/**

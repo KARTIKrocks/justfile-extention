@@ -26,6 +26,12 @@ watch:
 build-release:
     node esbuild.mjs --production
 
+# Build the .vsix the way the release workflow does; `just package pre-release` for the pre-release channel
+[group('build')]
+package channel="stable":
+    npx @vscode/vsce package {{ if channel == "pre-release" { "--pre-release" } else { "" } }}
+    npx @vscode/vsce ls --tree
+
 # Typecheck, lint and unit tests — the pre-commit gate
 [group('test')]
 check: typecheck lint test-unit
@@ -54,7 +60,7 @@ difftest:
 # Remove build output
 [group('build')]
 clean:
-    rm -rf dist out .vscode-test coverage
+    rm -rf dist out .vscode-test coverage *.vsix
 
 # Show which just binary is in use, and the old one kept for version-gating tests
 [group('setup')]
