@@ -6,7 +6,9 @@
  * plain Node and the provider layer only has to ask questions and hand the
  * answer to the trust-checked executor in `src/cli/trust.ts`.
  *
- * The rules mirror `just`'s own, verified against 1.21.0 and 1.58.0:
+ * The rules mirror `just`'s own. `test/differential/execution.test.ts` runs
+ * the argv built here against every `just` in the CI matrix, so the two flags
+ * and the parsing rule below are proven at the supported floor, not assumed:
  *
  * * After the recipe name `just` stops parsing options, so `-x`, `--verbose`
  *   and even `--` reach the recipe verbatim. No separator is inserted.
