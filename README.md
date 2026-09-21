@@ -11,9 +11,9 @@ A VS Code extension for [`just`](https://github.com/casey/just), the command run
 
 From the Extensions view, search for **Justfile Tools** and choose **Install Pre-Release Version**.
 The extension is published to the
-[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=KartikRajput.just-lang)
-and to [Open VSX](https://open-vsx.org/extension/KartikRajput/just-lang) for VSCodium and other
-editors that use it.
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=KartikRajput.just-lang).
+It is not on Open VSX yet, so VSCodium and other editors that use that registry cannot install
+it from their Extensions view for now.
 
 Or from the command line:
 
