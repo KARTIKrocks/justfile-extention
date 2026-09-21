@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest a capability the extension should have
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that is awkward or impossible today? Describe the situation, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: Workarounds, other extensions, or shell aliases you currently use.
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints you have considered
+      options:
+        - label: This does not require reimplementing just's semantics in the extension
+        - label: This works without executing anything in an untrusted workspace, or is acceptable to gate on trust

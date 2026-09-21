@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    // Runtime: the VS Code 1.101+ extension host is Electron 35 / Node 22.15.
+    "target": "es2023",
+    "lib": ["es2023"],
+    "types": ["node"],
+
+    // esbuild does the bundling; tsc only ever typechecks.
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    // Every file must be transpilable in isolation, because esbuild transpiles
+    // file-by-file and never consults the type checker.
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "useUnknownInCatchVariables": true,
+
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src", "test", "vitest.config.mts"],
+  "exclude": ["node_modules", "dist", "out"]
+}

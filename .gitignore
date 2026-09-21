@@ -1,0 +1,27 @@
+# Build output
+out/
+dist/
+*.vsix
+
+# Dependencies
+node_modules/
+
+# Test artifacts
+.vscode-test/
+coverage/
+*.tsbuildinfo
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+
+# Local scratch
+*.bak
+*.log
+
+# Local design docs (not published)
+PRD.md
+PRD.md.bak
+
+# Claude Code local overrides
+.claude/settings.local.json
