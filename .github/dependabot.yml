@@ -14,6 +14,10 @@ updates:
       # calls the host does not have, and that fails at runtime, not in CI.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # @types/vscode must equal engines.vscode in package.json — vsce refuses to
+      # package otherwise, for the same reason as above. It moves only when the
+      # minimum supported VS Code moves, and that is a deliberate decision.
+      - dependency-name: "@types/vscode"
     commit-message:
       prefix: build
       include: scope

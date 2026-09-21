@@ -1,0 +1,138 @@
+name: Release
+
+# Two ways in:
+#
+#   * Push a tag `vX.Y.Z` — publishes a stable release of that version.
+#   * Run the workflow by hand — publishes a pre-release from whatever ref you
+#     picked (normally main). Pre-releases are how the Phase 2 feature set ships
+#     before the MVP; stable releases wait for a tag.
+#
+# Both targets get the same .vsix: the Visual Studio Marketplace and Open VSX.
+# The version in package.json is the version that ships. The tag must match it,
+# and a pre-release must use an odd minor version, because that is the
+# convention the Marketplace uses to keep pre-release and stable channels from
+# colliding (https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions).
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and check the .vsix but do not publish"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      vsix: ${{ steps.meta.outputs.vsix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Decide channel and check the version
+        id: meta
+        run: |
+          version=$(node -p "require('./package.json').version")
+          minor=$(echo "$version" | cut -d. -f2)
+          if [ "${{ github.event_name }}" = "push" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$tag" != "$version" ]; then
+              echo "::error::Tag v$tag does not match package.json version $version"
+              exit 1
+            fi
+            if [ $((minor % 2)) -ne 0 ]; then
+              echo "::error::Stable releases use an even minor version; $version is a pre-release number"
+              exit 1
+            fi
+            prerelease=false
+          else
+            if [ $((minor % 2)) -ne 1 ]; then
+              echo "::error::Pre-releases use an odd minor version; $version is a stable number"
+              exit 1
+            fi
+            prerelease=true
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "vsix=justfile-$version.vsix" >> "$GITHUB_OUTPUT"
+
+      # The gate in CI, repeated here so a tag pushed from a stale checkout
+      # cannot ship something main never saw green.
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit
+
+      - name: Package
+        run: |
+          flag=""
+          if [ "${{ steps.meta.outputs.prerelease }}" = "true" ]; then flag="--pre-release"; fi
+          npx @vscode/vsce package $flag --out "${{ steps.meta.outputs.vsix }}"
+          npx @vscode/vsce ls --tree
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: ${{ steps.meta.outputs.vsix }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: package
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - name: Publish to the Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          flag=""
+          if [ "${{ needs.package.outputs.prerelease }}" = "true" ]; then flag="--pre-release"; fi
+          npx @vscode/vsce publish $flag --skip-duplicate --packagePath "${{ needs.package.outputs.vsix }}"
+
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          flag=""
+          if [ "${{ needs.package.outputs.prerelease }}" = "true" ]; then flag="--pre-release"; fi
+          npx ovsx publish $flag --skip-duplicate "${{ needs.package.outputs.vsix }}"
+
+      - name: GitHub release with the .vsix attached
+        if: ${{ github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "${{ needs.package.outputs.vsix }}" \
+            --title "v${{ needs.package.outputs.version }}" \
+            --notes-from-tag \
+            --verify-tag
