@@ -12,7 +12,8 @@ mechanics live in `.github/workflows/release.yml`; this is the part a person has
 
 The odd/even rule is the Marketplace's own convention: pre-release and stable share one
 version line, so the two channels must never claim the same number. The workflow refuses a
-version on the wrong channel.
+version on the wrong channel, and refuses any ref or tag that is not on `main` — only merged
+code ships. It also reruns the full CI gate, differential suite included, before packaging.
 
 Pre-releases ship the Phase 2 feature set while the MVP is built. The first stable release is
 the MVP.
@@ -54,7 +55,8 @@ once, in the profile page, before the first publish goes through.
 2. Run `just package pre-release` locally and glance at the file list `vsce ls` prints. This
    is the same build the workflow makes.
 3. **Actions → Release → Run workflow** on `main`. Tick *dry run* the first time to see the
-   `.vsix` built and uploaded as an artifact without publishing anything.
+   `.vsix` built and uploaded as an artifact without publishing anything. Dry run is the one
+   mode that accepts a ref that is not on `main`, so a branch can be packaged for inspection.
 4. Run it again without *dry run*. Both stores update within a few minutes.
 
 ## Cutting a stable release

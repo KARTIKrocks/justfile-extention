@@ -40,11 +40,28 @@ jobs:
       vsix: ${{ steps.meta.outputs.vsix }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the ancestry check below needs history
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: "1.58.0"
       - run: npm ci
+
+      # Only code that has landed on main ships. A tag on an unmerged or stale
+      # branch would otherwise publish to both stores and GitHub. Dry runs are
+      # exempt so a branch can be packaged for inspection before it merges.
+      - name: Require the ref to be on main
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not on main; merge it first"
+            exit 1
+          fi
 
       - name: Decide channel and check the version
         id: meta
@@ -73,11 +90,13 @@ jobs:
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
           echo "vsix=justfile-$version.vsix" >> "$GITHUB_OUTPUT"
 
-      # The gate in CI, repeated here so a tag pushed from a stale checkout
-      # cannot ship something main never saw green.
+      # The whole CI gate, repeated here so nothing ships that CI never saw
+      # green. The differential suite runs against the newest just in the CI
+      # matrix; the older versions are covered by the PR run.
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test:unit
+      - run: npm run test:diff
 
       - name: Package
         run: |
