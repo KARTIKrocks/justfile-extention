@@ -196,6 +196,7 @@ export const recorded = {
     foldingRangeProviders: [] as RegisteredFoldingRangeProvider[],
     outputChannels: [] as { name: string; messages: string[]; disposed: boolean }[],
     onDidCloseTextDocument: new EventSource<{ uri: { toString(): string } }>(),
+    onDidOpenTextDocument: new EventSource<{ languageId: string; uri: unknown }>(),
     onDidGrantWorkspaceTrust: new EventSource<void>(),
     onDidChangeConfiguration: new EventSource<ConfigurationChangeEvent>(),
     statusBarItems: [] as StatusBarItem[],
@@ -205,6 +206,8 @@ export const recorded = {
     infoMessages: [] as string[],
     /** `"section.key"` → value, read back by `workspace.getConfiguration`. */
     config: new Map<string, unknown>(),
+    /** Every `(section, scope)` pair `workspace.getConfiguration` was called with. */
+    configurationScopes: [] as { section: string; scope: unknown }[],
 };
 
 export function resetStub(): void {
@@ -213,6 +216,7 @@ export function resetStub(): void {
     recorded.foldingRangeProviders.length = 0;
     recorded.outputChannels.length = 0;
     recorded.onDidCloseTextDocument.listeners.length = 0;
+    recorded.onDidOpenTextDocument.listeners.length = 0;
     recorded.onDidGrantWorkspaceTrust.listeners.length = 0;
     recorded.onDidChangeConfiguration.listeners.length = 0;
     recorded.statusBarItems.length = 0;
@@ -221,7 +225,9 @@ export function resetStub(): void {
     recorded.warningMessages.length = 0;
     recorded.infoMessages.length = 0;
     recorded.config.clear();
+    recorded.configurationScopes.length = 0;
     workspace.isTrusted = true;
+    window.activeTextEditor = undefined;
 }
 
 export const languages = {
@@ -251,7 +257,13 @@ export const languages = {
     },
 };
 
+interface TextEditorStub {
+    document: { uri: unknown };
+}
+
 export const window = {
+    activeTextEditor: undefined as TextEditorStub | undefined,
+
     createOutputChannel(name: string, _options?: unknown) {
         const channel = { name, messages: [] as string[], disposed: false };
         recorded.outputChannels.push(channel);
@@ -301,10 +313,12 @@ interface Configuration {
 export const workspace = {
     isTrusted: true,
     onDidCloseTextDocument: recorded.onDidCloseTextDocument.register,
+    onDidOpenTextDocument: recorded.onDidOpenTextDocument.register,
     onDidGrantWorkspaceTrust: recorded.onDidGrantWorkspaceTrust.register,
     onDidChangeConfiguration: recorded.onDidChangeConfiguration.register,
 
-    getConfiguration(section: string): Configuration {
+    getConfiguration(section: string, scope?: unknown): Configuration {
+        recorded.configurationScopes.push({ section, scope });
         return {
             get<T>(key: string, fallback?: T): T | undefined {
                 const value = recorded.config.get(`${section}.${key}`);

@@ -43,12 +43,20 @@ export type Detection =
  * the schema `just.executablePath` declares, so `configured` can be a
  * number, an array, anything JSON allows. The `typeof` guard is what keeps
  * that from reaching `.trim()` and throwing.
+ *
+ * `just.executablePath` is declared `"scope": "resource"` in package.json, so
+ * a multi-root workspace can set a different value per folder. `resource`
+ * identifies which folder's value applies; omitting it falls back to
+ * whatever VS Code considers the default scope, which is not necessarily the
+ * folder actually being detected for.
  */
-export function resolveExecutablePath(): string {
+export function resolveExecutablePath(resource?: vscode.Uri): string {
     if (!vscode.workspace.isTrusted) {
         return DEFAULT_EXECUTABLE;
     }
-    const configured = vscode.workspace.getConfiguration(CONFIG_SECTION).get<string>(CONFIG_KEY);
+    const configured = vscode.workspace
+        .getConfiguration(CONFIG_SECTION, resource)
+        .get<string>(CONFIG_KEY);
     return typeof configured === "string" && configured.trim() !== ""
         ? configured
         : DEFAULT_EXECUTABLE;
@@ -63,14 +71,19 @@ export function parseVersion(stdout: string): string | undefined {
 /**
  * Detect the `just` binary and its version.
  *
+ * `resource` is forwarded to `resolveExecutablePath` so a multi-root
+ * workspace resolves the folder-specific `just.executablePath`, not
+ * whichever folder VS Code happens to default to.
+ *
  * `run` is injectable so this is testable without spawning a real process.
  * The default is `runJust`, the one trust-checked entry point every real
  * call goes through — production code never has a reason to pass another.
  */
 export async function detectJust(
+    resource?: vscode.Uri,
     run: (executablePath: string, args: readonly string[]) => Promise<JustOutcome> = runJust,
 ): Promise<Detection> {
-    const executablePath = resolveExecutablePath();
+    const executablePath = resolveExecutablePath(resource);
     const outcome = await run(executablePath, ["--version"]);
     if (!outcome.ok) {
         return outcome.reason === "untrusted" ? { state: "untrusted" } : { state: "not-found" };

@@ -6,6 +6,15 @@
  * Tier 2: every path through here either reads workspace configuration or,
  * through `detectJust`/`runJust`, may spawn `just --version`. Nothing here
  * calls `child_process` directly — see `src/cli/trust.ts`.
+ *
+ * Detection is demand-driven, never activation-driven. AGENTS.md invariant 5
+ * forbids a subprocess reachable from `activate()`, and merely deferring the
+ * spawn to a later microtask still leaves it reachable — it happens on every
+ * activation regardless of whether the user ever looks at a justfile. The
+ * first real detection instead waits for a signal that the user actually
+ * wants it: a justfile being opened, `just.executablePath` changing,
+ * workspace trust being granted, or one of the three commands below. Until
+ * one of those fires, the item shows an unchecked, idle state.
  */
 
 import * as vscode from "vscode";
@@ -74,12 +83,23 @@ function messageFor(detection: Detection): string {
     }
 }
 
+/** The idle state shown before the first real detection has run. */
+function showIdle(item: vscode.StatusBarItem): void {
+    item.text = `$(question) ${vscode.l10n.t("Just")}`;
+    item.tooltip = vscode.l10n.t(
+        "just has not been checked yet. Open a justfile, or run Just: Check Installation.",
+    );
+    item.command = CHECK_COMMAND;
+    item.show();
+}
+
 export function registerCliStatus(
     context: vscode.ExtensionContext,
-    detect: () => Promise<Detection> = detectJust,
-): Promise<vscode.StatusBarItem> {
+    detect: (resource?: vscode.Uri) => Promise<Detection> = detectJust,
+): vscode.StatusBarItem {
     const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     context.subscriptions.push(item);
+    showIdle(item);
 
     // Cached between the triggers PRD 8.29 names — a config change, trust
     // being granted, or the explicit "check installation" command — rather
@@ -88,8 +108,8 @@ export function registerCliStatus(
     // Shown once per session: PRD 8.29 says the extension "states this
     // clearly once, and does not repeatedly nag."
     let warnedBelowMinimum = false;
-    // The four triggers below can each start a refresh without waiting for
-    // an earlier one to finish (config change and trust-granted racing each
+    // The triggers below can each start a refresh without waiting for an
+    // earlier one to finish (config change and trust-granted racing each
     // other, say), and their `detect()` calls have no ordering guarantee on
     // which resolves last. Only the most recently *started* refresh may
     // update the cache and the status bar, so a slower, superseded one
@@ -98,9 +118,19 @@ export function registerCliStatus(
     // installation" to report on — only the shared state is guarded.
     let generation = 0;
 
-    async function refresh(): Promise<Detection> {
+    // The resource whose folder-scoped `just.executablePath` is relevant
+    // right now: the file being looked at, when there is one. `just.
+    // executablePath` is scoped "resource" in package.json specifically so a
+    // multi-root workspace can set a different value per folder.
+    function activeResource(): vscode.Uri | undefined {
+        return vscode.window.activeTextEditor?.document.uri;
+    }
+
+    async function refresh(
+        resource: vscode.Uri | undefined = activeResource(),
+    ): Promise<Detection> {
         const thisGeneration = ++generation;
-        const detection = await detect();
+        const detection = await detect(resource);
         if (thisGeneration === generation) {
             cached = detection;
             applyDetection(item, detection);
@@ -125,6 +155,17 @@ export function registerCliStatus(
         vscode.workspace.onDidGrantWorkspaceTrust(() => {
             void refresh();
         }),
+        // The one trigger that is not an explicit user action on the
+        // extension itself, yet is still real demand: opening a justfile is
+        // evidence the user wants to know about `just`, unlike the extension
+        // merely having activated because one exists somewhere in the
+        // workspace. Guarded on `cached` so a second justfile opening later
+        // does not re-spawn `just --version` needlessly.
+        vscode.workspace.onDidOpenTextDocument((document) => {
+            if (document.languageId === "just" && cached === undefined) {
+                void refresh(document.uri);
+            }
+        }),
     );
 
     context.subscriptions.push(
@@ -144,13 +185,5 @@ export function registerCliStatus(
         }),
     );
 
-    // Deferred past the current synchronous call: `refresh` reaches
-    // `runJust`, whose `new Promise((resolve) => execFile(...))` executor
-    // runs synchronously, per the language — without this yield, the actual
-    // subprocess spawn would happen inside activate()'s own call stack,
-    // before it returns. AGENTS.md invariant 5 forbids that outright, and
-    // nothing in CI would catch it if it crept back in.
-    return Promise.resolve()
-        .then(refresh)
-        .then(() => item);
+    return item;
 }

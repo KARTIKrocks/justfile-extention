@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { recorded, resetStub, type StatusBarItem } from "../../test/stubs/vscode.js";
+import { recorded, resetStub, type StatusBarItem, window } from "../../test/stubs/vscode.js";
 import type { Detection } from "../cli/detect.js";
 import { registerCliStatus } from "./cliStatus.js";
 
@@ -17,17 +17,23 @@ function detectSequence(...results: Detection[]): () => Promise<Detection> {
     };
 }
 
-/**
- * Registers with `detect`, waits for the first refresh, and hands back the
- * item from the stub's own recording — not `registerCliStatus`'s return
- * value, which is typed against the real `vscode.StatusBarItem` and so does
- * not expose the stub's `shown` field.
- */
+/** Emits `onDidOpenTextDocument` for a justfile and flushes the microtasks refresh() needs. */
+async function openAJustfile(): Promise<void> {
+    recorded.onDidOpenTextDocument.emit({ languageId: "just", uri: "file:///a/justfile" });
+    await Promise.resolve();
+    await Promise.resolve();
+}
+
+/** Registers with `detect`, opens a justfile to trigger the first real detection, and hands
+ * back the item from the stub's own recording — not `registerCliStatus`'s return value, which
+ * is typed against the real `vscode.StatusBarItem` and so does not expose the stub's `shown`
+ * field. */
 async function statusFor(
     context: { subscriptions: { dispose(): void }[] },
     detect: () => Promise<Detection>,
 ): Promise<StatusBarItem> {
-    await registerCliStatus(context as never, detect);
+    registerCliStatus(context as never, detect);
+    await openAJustfile();
     const item = recorded.statusBarItems.at(-1);
     if (item === undefined) {
         throw new Error("the status bar item was not created");
@@ -51,23 +57,37 @@ const UNTRUSTED: Detection = { state: "untrusted" };
 beforeEach(resetStub);
 
 describe("registration", () => {
-    it("creates one status bar item and registers the three commands", async () => {
+    it("creates one status bar item and registers the three commands", () => {
         const context = contextOf();
-        await registerCliStatus(context as never, detectSequence(SUPPORTED));
+        registerCliStatus(context as never, detectSequence(SUPPORTED));
         expect(recorded.statusBarItems).toHaveLength(1);
         expect(recorded.commands.has("just.checkInstallation")).toBe(true);
         expect(recorded.commands.has("just.showVersion")).toBe(true);
         expect(recorded.commands.has("just.configureExecutable")).toBe(true);
     });
 
-    it("puts the item and every listener and command under the context's disposal", async () => {
+    it("puts the item and every listener and command under the context's disposal", () => {
         const context = contextOf();
-        await registerCliStatus(context as never, detectSequence(SUPPORTED));
-        // Item, two listeners (config change, trust granted), three commands.
-        expect(context.subscriptions.length).toBeGreaterThanOrEqual(6);
+        registerCliStatus(context as never, detectSequence(SUPPORTED));
+        // Item, three listeners (config change, trust granted, doc opened), three commands.
+        expect(context.subscriptions.length).toBeGreaterThanOrEqual(7);
     });
 
-    it("resolves with the status bar item after the first refresh", async () => {
+    it("shows an idle, unchecked state immediately, without calling detect", () => {
+        const context = contextOf();
+        let called = false;
+        const detect = () => {
+            called = true;
+            return Promise.resolve(SUPPORTED);
+        };
+        registerCliStatus(context as never, detect);
+        const item = recorded.statusBarItems.at(-1);
+        expect(item?.shown).toBe(true);
+        expect(item?.command).toBe("just.checkInstallation");
+        expect(called).toBe(false);
+    });
+
+    it("resolves with the status bar item after opening a justfile triggers detection", async () => {
         const item = await statusFor(contextOf(), detectSequence(SUPPORTED));
         expect(item.text).toContain("1.58.0");
         expect(item.shown).toBe(true);
@@ -134,6 +154,14 @@ describe("just.checkInstallation", () => {
         expect(recorded.infoMessages).toHaveLength(1);
         expect(recorded.infoMessages[0]).toContain("1.58.0");
     });
+
+    it("runs detection even before any justfile has been opened", async () => {
+        const context = contextOf();
+        registerCliStatus(context as never, detectSequence(SUPPORTED));
+        await recorded.commands.get("just.checkInstallation")?.();
+        const item = recorded.statusBarItems.at(-1);
+        expect(item?.text).toContain("1.58.0");
+    });
 });
 
 describe("just.showVersion", () => {
@@ -159,45 +187,102 @@ describe("just.configureExecutable", () => {
 });
 
 describe("refresh triggers", () => {
-    it("refreshes when just.executablePath changes", async () => {
-        const item = await statusFor(contextOf(), detectSequence(NOT_FOUND, SUPPORTED));
-        expect(item.text).toContain("not found");
+    it("refreshes when just.executablePath changes, even before any justfile has opened", async () => {
+        const context = contextOf();
+        registerCliStatus(context as never, detectSequence(SUPPORTED));
         recorded.onDidChangeConfiguration.emit({ affectsConfiguration: () => true });
         await Promise.resolve();
         await Promise.resolve();
-        expect(item.text).toContain("1.58.0");
+        const item = recorded.statusBarItems.at(-1);
+        expect(item?.text).toContain("1.58.0");
     });
 
-    it("does not refresh for an unrelated configuration change", async () => {
-        const item = await statusFor(contextOf(), detectSequence(NOT_FOUND, SUPPORTED));
+    it("does not refresh for an unrelated configuration change", () => {
+        const context = contextOf();
+        registerCliStatus(context as never, detectSequence(SUPPORTED));
         recorded.onDidChangeConfiguration.emit({ affectsConfiguration: () => false });
-        await Promise.resolve();
-        expect(item.text).toContain("not found");
+        const item = recorded.statusBarItems.at(-1);
+        expect(item?.command).toBe("just.checkInstallation");
+        expect(item?.text).toContain("Just");
+        expect(item?.text).not.toContain("1.58.0");
     });
 
-    it("refreshes when workspace trust is granted", async () => {
-        const item = await statusFor(contextOf(), detectSequence(UNTRUSTED, SUPPORTED));
-        expect(item.text).toContain("$(shield)");
+    it("refreshes when workspace trust is granted, even before any justfile has opened", async () => {
+        const context = contextOf();
+        registerCliStatus(context as never, detectSequence(SUPPORTED));
         recorded.onDidGrantWorkspaceTrust.emit(undefined);
         await Promise.resolve();
         await Promise.resolve();
+        const item = recorded.statusBarItems.at(-1);
+        expect(item?.text).toContain("1.58.0");
+    });
+
+    it("refreshes when a justfile is opened", async () => {
+        const item = await statusFor(contextOf(), detectSequence(SUPPORTED));
+        expect(item.text).toContain("1.58.0");
+    });
+
+    it("ignores a document opened with a different language", async () => {
+        const context = contextOf();
+        registerCliStatus(context as never, detectSequence(SUPPORTED));
+        recorded.onDidOpenTextDocument.emit({
+            languageId: "plaintext",
+            uri: "file:///a/notes.txt",
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        const item = recorded.statusBarItems.at(-1);
+        expect(item?.text).not.toContain("1.58.0");
+    });
+
+    it("does not re-detect for a second justfile once already detected", async () => {
+        const item = await statusFor(contextOf(), detectSequence(SUPPORTED, UNSUPPORTED));
+        expect(item.text).toContain("1.58.0");
+        // A second open would have returned UNSUPPORTED from the fake, had it
+        // triggered another refresh.
+        await openAJustfile();
         expect(item.text).toContain("1.58.0");
     });
 });
 
-describe("activation must not spawn a process synchronously", () => {
-    it("does not call detect before the current synchronous call stack finishes", () => {
-        // detect() is what reaches execFile through runJust. A Promise
-        // executor runs synchronously, so if registerCliStatus ever called
-        // it without first yielding, the actual subprocess spawn would
-        // happen inside activate()'s own call stack — AGENTS.md invariant 5
-        // forbids that outright, and nothing in CI would catch it.
+describe("resource scoping", () => {
+    it("passes the opened document's resource to detect", async () => {
+        let received: unknown;
+        const detect = (resource?: unknown) => {
+            received = resource;
+            return Promise.resolve(SUPPORTED);
+        };
+        registerCliStatus(contextOf() as never, detect);
+        recorded.onDidOpenTextDocument.emit({ languageId: "just", uri: "file:///a/justfile" });
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(received).toBe("file:///a/justfile");
+    });
+
+    it("falls back to the active editor's resource for other triggers", async () => {
+        window.activeTextEditor = { document: { uri: "file:///active/justfile" } };
+        let received: unknown;
+        const detect = (resource?: unknown) => {
+            received = resource;
+            return Promise.resolve(SUPPORTED);
+        };
+        registerCliStatus(contextOf() as never, detect);
+        await recorded.commands.get("just.checkInstallation")?.();
+        expect(received).toBe("file:///active/justfile");
+    });
+});
+
+describe("activation must not spawn a process", () => {
+    it("never calls detect merely from registering, even after the task queue is flushed", async () => {
         let called = false;
         const detect = () => {
             called = true;
             return Promise.resolve(SUPPORTED);
         };
         registerCliStatus(contextOf() as never, detect);
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
         expect(called).toBe(false);
     });
 });
@@ -211,17 +296,18 @@ describe("concurrent refreshes", () => {
         let calls = 0;
         const detect = () => {
             calls += 1;
-            // The first call (the initial refresh at registration) hangs
-            // until resolveSlow is called; every later call resolves at
-            // once, simulating two execFile round-trips completing in the
-            // opposite order to the one they started in.
+            // The first call (triggered by opening a justfile) hangs until
+            // resolveSlow is called; every later call resolves at once,
+            // simulating two execFile round-trips completing in the opposite
+            // order to the one they started in.
             return calls === 1 ? slow : Promise.resolve(SUPPORTED);
         };
 
         const context = contextOf();
-        const registered = registerCliStatus(context as never, detect);
-        // Let the deferred initial refresh actually start (generation 1),
-        // without waiting for it to resolve.
+        registerCliStatus(context as never, detect);
+        recorded.onDidOpenTextDocument.emit({ languageId: "just", uri: "file:///a/justfile" });
+        // Let the triggered refresh actually start (generation 1), without
+        // waiting for it to resolve.
         await Promise.resolve();
         await Promise.resolve();
 
@@ -234,7 +320,8 @@ describe("concurrent refreshes", () => {
         // The slow, earlier-started refresh finally resolves with a
         // different result. It must not overwrite generation 2's.
         resolveSlow?.(NOT_FOUND);
-        await registered;
+        await Promise.resolve();
+        await Promise.resolve();
         expect(item?.text).toContain("1.58.0");
     });
 });

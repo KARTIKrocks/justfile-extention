@@ -35,12 +35,12 @@ export function activate(context: vscode.ExtensionContext): void {
     registerDocumentSymbols(context, cache);
     registerFolding(context, cache);
 
-    // The first Tier 2 feature: registration is synchronous and cheap, same
-    // as the providers above, but its own first refresh spawns `just
-    // --version` once trust allows it. Not awaited — activation must not
-    // block on a subprocess — so the status bar starts empty and fills in
-    // once that resolves.
-    void registerCliStatus(context);
+    // The first Tier 2 feature. Registration itself is synchronous and
+    // cheap, same as the providers above; unlike them, it can eventually
+    // spawn `just --version`, but not from here — that first detection
+    // waits for real demand (a justfile opening, trust being granted, and
+    // so on), never for activation itself. See cliStatus.ts.
+    registerCliStatus(context);
 
     // Trust can be granted mid-session, so it is read at call time rather than
     // captured here. This listener exists to light up Tier 2 when that happens.

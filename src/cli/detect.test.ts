@@ -53,6 +53,19 @@ describe("resolveExecutablePath", () => {
         workspace.isTrusted = false;
         expect(resolveExecutablePath()).toBe("just");
     });
+
+    it("passes the given resource through to getConfiguration", () => {
+        // `just.executablePath` is scoped "resource" in package.json, so a
+        // multi-root workspace can set a different value per folder. Without
+        // the resource, getConfiguration cannot tell which folder's value to
+        // use.
+        const resource = { toString: () => "file:///a/justfile" } as never;
+        resolveExecutablePath(resource);
+        expect(recorded.configurationScopes.at(-1)).toEqual({
+            section: "just",
+            scope: resource,
+        });
+    });
 });
 
 describe("detectJust", () => {
@@ -63,25 +76,34 @@ describe("detectJust", () => {
     }
 
     it("reports untrusted without needing to look at the outcome further", () => {
-        return detectJust(fakeRun({ ok: false, reason: "untrusted" })).then((detection) => {
-            expect(detection).toEqual({ state: "untrusted" });
-        });
+        return detectJust(undefined, fakeRun({ ok: false, reason: "untrusted" })).then(
+            (detection) => {
+                expect(detection).toEqual({ state: "untrusted" });
+            },
+        );
     });
 
     it("reports not-found when the spawn fails", async () => {
         const detection = await detectJust(
+            undefined,
             fakeRun({ ok: false, reason: "spawn-error", message: "ENOENT" }),
         );
         expect(detection).toEqual({ state: "not-found" });
     });
 
     it("reports not-found when the output cannot be parsed as a version", async () => {
-        const detection = await detectJust(fakeRun({ ok: true, stdout: "not just at all\n" }));
+        const detection = await detectJust(
+            undefined,
+            fakeRun({ ok: true, stdout: "not just at all\n" }),
+        );
         expect(detection).toEqual({ state: "not-found" });
     });
 
     it("reports a supported version at or above the minimum", async () => {
-        const detection = await detectJust(fakeRun({ ok: true, stdout: "just 1.58.0\n" }));
+        const detection = await detectJust(
+            undefined,
+            fakeRun({ ok: true, stdout: "just 1.58.0\n" }),
+        );
         expect(detection).toEqual({
             state: "detected",
             detected: { executablePath: "just", version: "1.58.0", supported: true },
@@ -89,7 +111,10 @@ describe("detectJust", () => {
     });
 
     it("reports an unsupported version below the minimum", async () => {
-        const detection = await detectJust(fakeRun({ ok: true, stdout: "just 1.21.0\n" }));
+        const detection = await detectJust(
+            undefined,
+            fakeRun({ ok: true, stdout: "just 1.21.0\n" }),
+        );
         expect(detection).toEqual({
             state: "detected",
             detected: { executablePath: "just", version: "1.21.0", supported: false },
@@ -98,10 +123,23 @@ describe("detectJust", () => {
 
     it("carries the resolved executable path through", async () => {
         recorded.config.set("just.executablePath", "/opt/just/bin/just");
-        const detection = await detectJust(fakeRun({ ok: true, stdout: "just 1.58.0\n" }));
+        const detection = await detectJust(
+            undefined,
+            fakeRun({ ok: true, stdout: "just 1.58.0\n" }),
+        );
         expect(detection.state).toBe("detected");
         expect(detection.state === "detected" && detection.detected.executablePath).toBe(
             "/opt/just/bin/just",
         );
+    });
+
+    it("forwards the resource to resolveExecutablePath", async () => {
+        recorded.config.set("just.executablePath", "just");
+        const resource = { toString: () => "file:///a/justfile" } as never;
+        await detectJust(resource, fakeRun({ ok: true, stdout: "just 1.58.0\n" }));
+        expect(recorded.configurationScopes.at(-1)).toEqual({
+            section: "just",
+            scope: resource,
+        });
     });
 });
