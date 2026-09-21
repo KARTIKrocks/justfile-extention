@@ -214,6 +214,22 @@ async function collectArguments(
     return args;
 }
 
+/** Whether arguments collected for `before` still apply to `after`. */
+function sameParameters(after: ModelRecipe, before: ModelRecipe): boolean {
+    return (
+        after.parameters.length === before.parameters.length &&
+        after.parameters.every((parameter, index) => {
+            const other = before.parameters[index];
+            return (
+                other !== undefined &&
+                parameter.name === other.name &&
+                parameter.kind === other.kind &&
+                parameter.hasDefault === other.hasDefault
+            );
+        })
+    );
+}
+
 export function registerRunRecipe(context: vscode.ExtensionContext, cache: ParseCache): void {
     async function run(target: RunTarget | undefined, withArguments: boolean): Promise<void> {
         // First, before anything else. See the module comment.
@@ -259,6 +275,22 @@ export function registerRunRecipe(context: vscode.ExtensionContext, cache: Parse
             return;
         }
 
+        // The questions took time, and a save participant may have rewritten
+        // the file. The arguments were collected for the recipe as it *was*;
+        // they only still fit if the recipe is still there with the same
+        // parameters. Otherwise say so rather than run something else.
+        const saved = cache.parse(document.uri.toString(), document.version, document.getText());
+        const current = saved.model.recipes.find((candidate) => candidate.name === recipe.name);
+        if (current === undefined || !sameParameters(current, recipe)) {
+            void vscode.window.showWarningMessage(
+                vscode.l10n.t(
+                    "The Justfile changed while preparing to run {0}. Run it again.",
+                    recipe.name,
+                ),
+            );
+            return;
+        }
+
         const justfile = document.uri.fsPath;
         const cwd = dirname(justfile);
         const outcome = await startJustTask(
@@ -273,9 +305,15 @@ export function registerRunRecipe(context: vscode.ExtensionContext, cache: Parse
             },
         );
         if (!outcome.ok) {
-            // Trust was revoked between the check above and here. Rare, but
-            // the backstop in `startJustTask` exists for exactly this.
-            await explainUntrusted();
+            if (outcome.reason === "untrusted") {
+                // Trust was revoked between the check above and here. Rare,
+                // but the backstop in `startJustTask` exists for exactly this.
+                await explainUntrusted();
+            } else {
+                void vscode.window.showErrorMessage(
+                    vscode.l10n.t("Could not start just {0}: {1}", recipe.name, outcome.message),
+                );
+            }
         }
     }
 

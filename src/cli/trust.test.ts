@@ -47,11 +47,11 @@ describe("startJustTask", () => {
         expect(recorded.executedTasks).toEqual([]);
     });
 
-    it("hands VS Code an argv, every element strongly quoted", async () => {
+    it("hands VS Code an argv, every element strongly quoted, the executable included", async () => {
         const outcome = await startJustTask("just", ["build", "two words"], options);
         expect(outcome.ok).toBe(true);
         const task = recorded.executedTasks[0];
-        expect(task?.execution.command).toBe("just");
+        expect(task?.execution.command).toEqual({ value: "just", quoting: 2 });
         expect(task?.execution.args).toEqual([
             { value: "build", quoting: 2 },
             { value: "two words", quoting: 2 },
@@ -60,6 +60,20 @@ describe("startJustTask", () => {
         expect(task?.definition).toEqual({ type: "just", recipe: "build" });
         expect(task?.name).toBe("just build");
         expect(task?.source).toBe("just");
+    });
+
+    it("keeps an executable path with spaces as one word", async () => {
+        await startJustTask("C:\\Program Files\\just\\just.exe", ["build"], options);
+        expect(recorded.executedTasks[0]?.execution.command).toEqual({
+            value: "C:\\Program Files\\just\\just.exe",
+            quoting: 2,
+        });
+    });
+
+    it("reports a task system failure as a result rather than rejecting", async () => {
+        recorded.taskLaunchError = new Error("no terminal");
+        const outcome = await startJustTask("just", ["build"], options);
+        expect(outcome).toEqual({ ok: false, reason: "launch-error", message: "no terminal" });
     });
 
     it("reveals the terminal and shares a panel between runs", async () => {

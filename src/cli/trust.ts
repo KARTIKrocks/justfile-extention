@@ -57,7 +57,8 @@ export function runJust(executablePath: string, args: readonly string[]): Promis
 
 export type TaskOutcome =
     | { readonly ok: true; readonly execution: vscode.TaskExecution }
-    | { readonly ok: false; readonly reason: "untrusted" };
+    | { readonly ok: false; readonly reason: "untrusted" }
+    | { readonly ok: false; readonly reason: "launch-error"; readonly message: string };
 
 export interface TaskOptions {
     /** Directory the terminal starts in. `just` gets an explicit one too. */
@@ -94,11 +95,19 @@ export async function startJustTask(
     if (!vscode.workspace.isTrusted) {
         return { ok: false, reason: "untrusted" };
     }
-    // Strong quoting on every element: literal, no expansion, whatever the
-    // shell. The executable is left as written so a bare `just` still
-    // resolves on PATH.
-    const quoted = args.map((value) => ({ value, quoting: vscode.ShellQuoting.Strong }));
-    const execution = new vscode.ShellExecution(executablePath, quoted, { cwd: options.cwd });
+    // Strong quoting on every element, the executable included: literal, no
+    // expansion, whatever the shell. A quoted bare `just` still resolves on
+    // PATH — quoting never turns a name into a path — and a configured
+    // `C:\Program Files\just\just.exe` stays one word instead of splitting
+    // at the space. VS Code adds PowerShell's `&` call operator itself when
+    // the command is quoted.
+    const strong = (value: string): vscode.ShellQuotedString => ({
+        value,
+        quoting: vscode.ShellQuoting.Strong,
+    });
+    const execution = new vscode.ShellExecution(strong(executablePath), args.map(strong), {
+        cwd: options.cwd,
+    });
     const task = new vscode.Task(
         { type: TASK_TYPE, recipe: options.recipe },
         options.scope,
@@ -112,7 +121,18 @@ export async function startJustTask(
         clear: false,
         showReuseMessage: true,
     };
-    return { ok: true, execution: await vscode.tasks.executeTask(task) };
+    try {
+        return { ok: true, execution: await vscode.tasks.executeTask(task) };
+    } catch (error) {
+        // The task system refusing to start — no terminal, a broken shell
+        // profile — is a result to show, not an exception to leak out of a
+        // command handler where nobody would see it.
+        return {
+            ok: false,
+            reason: "launch-error",
+            message: error instanceof Error ? error.message : String(error),
+        };
+    }
 }
 
 /** Matches `contributes.taskDefinitions` in package.json. */

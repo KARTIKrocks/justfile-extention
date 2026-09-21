@@ -24,7 +24,7 @@ const URI = "file:///w/justfile";
 
 function documentOf(text: string, overrides: Partial<TextDocumentStub> = {}): TextDocumentStub {
     let saved = false;
-    return {
+    const base = {
         languageId: "just",
         uri: { toString: () => URI, scheme: "file", fsPath: "/w/justfile" },
         version: 1,
@@ -37,8 +37,13 @@ function documentOf(text: string, overrides: Partial<TextDocumentStub> = {}): Te
         get wasSaved() {
             return saved;
         },
-        ...overrides,
-    } as TextDocumentStub;
+    };
+    // Descriptors rather than a spread, so an override written as a getter
+    // stays live instead of being read once.
+    return Object.defineProperties(
+        base,
+        Object.getOwnPropertyDescriptors(overrides),
+    ) as TextDocumentStub;
 }
 
 /** Register, open `text` as the active Justfile, and hand back the commands. */
@@ -99,7 +104,7 @@ describe("running from a CodeLens target", () => {
         const { run } = setUp("build:\n    echo\n");
         await run(target("build"));
         const task = lastTask();
-        expect(task.execution.command).toBe("just");
+        expect(task.execution.command).toEqual({ value: "just", quoting: ShellQuoting.Strong });
         expect(argValues(task)).toEqual([
             "--justfile",
             "/w/justfile",
@@ -125,7 +130,17 @@ describe("running from a CodeLens target", () => {
         recorded.config.set("just.executablePath", "/opt/just");
         const { run } = setUp("build:\n    echo\n");
         await run(target("build"));
-        expect(lastTask().execution.command).toBe("/opt/just");
+        expect(lastTask().execution.command).toEqual({
+            value: "/opt/just",
+            quoting: ShellQuoting.Strong,
+        });
+    });
+
+    it("shows an error when the task system cannot start the run", async () => {
+        recorded.taskLaunchError = new Error("no terminal");
+        const { run } = setUp("build:\n    echo\n");
+        await run(target("build"));
+        expect(recorded.errorMessages[0]).toMatch(/Could not start just build: no terminal/);
     });
 
     it("scopes the task to the workspace folder when there is one", async () => {
@@ -153,6 +168,50 @@ describe("running from a CodeLens target", () => {
         await run(target("build"));
         expect((document as { wasSaved?: boolean }).wasSaved).toBe(true);
         expect(recorded.executedTasks).toHaveLength(1);
+    });
+
+    it("refuses to run when saving changed the recipe's parameters", async () => {
+        // A save participant (a formatter, say) rewrote the file so that the
+        // arguments collected no longer fit.
+        let text = "deploy env:\n    echo\n";
+        let version = 1;
+        const { run } = setUp(text, {
+            isDirty: true,
+            getText: () => text,
+            get version() {
+                return version;
+            },
+            save: () => {
+                // An edit, so the version moves — as it does in the editor.
+                text = 'deploy env region="eu":\n    echo\n';
+                version++;
+                return Promise.resolve(true);
+            },
+        });
+        recorded.inputBoxAnswers.push("prod");
+        await run(target("deploy"));
+        expect(recorded.executedTasks).toEqual([]);
+        expect(recorded.warningMessages[0]).toMatch(/changed while preparing to run deploy/);
+    });
+
+    it("refuses to run when saving removed the recipe", async () => {
+        let text = "build:\n    echo\n";
+        let version = 1;
+        const { run } = setUp(text, {
+            isDirty: true,
+            getText: () => text,
+            get version() {
+                return version;
+            },
+            save: () => {
+                text = "test:\n    echo\n";
+                version++;
+                return Promise.resolve(true);
+            },
+        });
+        await run(target("build"));
+        expect(recorded.executedTasks).toEqual([]);
+        expect(recorded.warningMessages[0]).toMatch(/changed while preparing/);
     });
 
     it("refuses an untitled document, which has no path for just to read", async () => {

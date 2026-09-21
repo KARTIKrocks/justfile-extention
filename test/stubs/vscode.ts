@@ -183,12 +183,12 @@ export interface ShellQuotedString {
 }
 
 export class ShellExecution {
-    readonly command: string;
+    readonly command: string | ShellQuotedString;
     readonly args: readonly (string | ShellQuotedString)[];
     readonly options: { cwd?: string } | undefined;
 
     constructor(
-        command: string,
+        command: string | ShellQuotedString,
         args: readonly (string | ShellQuotedString)[],
         options?: { cwd?: string },
     ) {
@@ -281,6 +281,9 @@ export const recorded = {
     foldingRangeProviders: [] as RegisteredFoldingRangeProvider[],
     codeLensProviders: [] as RegisteredCodeLensProvider[],
     executedTasks: [] as Task[],
+    /** When set, `tasks.executeTask` rejects with it instead of starting. */
+    taskLaunchError: undefined as Error | undefined,
+    errorMessages: [] as string[],
     /** Answers `showQuickPick` gives, by label; `undefined` means cancelled. */
     quickPickAnswers: [] as (string | undefined)[],
     quickPickItems: [] as { label: string; description?: string; detail?: string }[][],
@@ -309,6 +312,8 @@ export function resetStub(): void {
     recorded.foldingRangeProviders.length = 0;
     recorded.codeLensProviders.length = 0;
     recorded.executedTasks.length = 0;
+    recorded.taskLaunchError = undefined;
+    recorded.errorMessages.length = 0;
     recorded.quickPickAnswers.length = 0;
     recorded.quickPickItems.length = 0;
     recorded.inputBoxAnswers.length = 0;
@@ -369,6 +374,9 @@ export const languages = {
 
 export const tasks = {
     executeTask(task: Task): Promise<{ task: Task; terminate(): void }> {
+        if (recorded.taskLaunchError !== undefined) {
+            return Promise.reject(recorded.taskLaunchError);
+        }
         recorded.executedTasks.push(task);
         return Promise.resolve({ task, terminate: () => {} });
     },
@@ -423,6 +431,11 @@ export const window = {
 
     showInformationMessage(message: string, ..._items: string[]): Promise<string | undefined> {
         recorded.infoMessages.push(message);
+        return Promise.resolve(undefined);
+    },
+
+    showErrorMessage(message: string, ..._items: string[]): Promise<string | undefined> {
+        recorded.errorMessages.push(message);
         return Promise.resolve(undefined);
     },
 };
