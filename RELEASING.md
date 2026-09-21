@@ -26,7 +26,7 @@ repository secrets means a required reviewer can be added later without touching
 ### Visual Studio Marketplace
 
 1. Sign in at <https://marketplace.visualstudio.com/manage> with a Microsoft account and
-   create a publisher. Its ID must match `publisher` in `package.json`, which is `kartikrocks`
+   create a publisher. Its ID must match `publisher` in `package.json`, which is `KartikRajput`
    — change the manifest if you pick something else.
 2. In Azure DevOps (<https://dev.azure.com>, any organisation), create a Personal Access Token
    with **Organization: All accessible organizations** and the single scope
@@ -39,7 +39,7 @@ new one and replace the secret.
 ### Open VSX
 
 1. Sign in at <https://open-vsx.org> with GitHub, then create a namespace named after the
-   publisher ID (`kartikrocks`) under your profile. The namespace and the Marketplace publisher
+   publisher ID (`KartikRajput`) under your profile. The namespace and the Marketplace publisher
    ID must match, because the manifest holds only one.
 2. Generate an access token from your profile page.
 3. Save it as the secret `OVSX_PAT`.
