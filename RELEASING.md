@@ -14,10 +14,10 @@ The channel is decided by the version number alone. The odd/even rule is the Mar
 own convention: pre-release and stable share one version line, so the two channels must never
 claim the same number.
 
-Every published version gets a tag `vX.Y.Z`, and pushing that tag is what publishes it. The
-workflow refuses a tag that does not match `package.json`, refuses any ref that is not on
-`main` — only merged code ships — and reruns the full CI gate, differential suite included,
-before packaging.
+Every published version has a tag `vX.Y.Z`, and pushing that tag is the only thing that
+publishes. The workflow refuses a tag that does not match `package.json`, refuses a tag that
+is not on `main` — only merged code ships — and reruns the full CI gate, differential suite
+included, before packaging.
 
 Pre-releases ship the Phase 2 feature set while the MVP is built. The first stable release is
 the MVP.
@@ -69,9 +69,9 @@ once, in the profile page, before the first publish goes through.
 4. The workflow checks the tag against `package.json`, rebuilds, publishes to both stores and
    creates a GitHub release (marked pre-release when the version is) with the `.vsix` attached.
 
-To see the `.vsix` a branch would produce without publishing anything, run
-**Actions → Release → Run workflow** on that branch with *dry run* ticked. Dry run is the one
-mode that accepts a ref that is not on `main`.
+To see the `.vsix` a branch would produce, run **Actions → Release → Run workflow** on that
+branch. A manual run builds, checks and uploads the `.vsix` as an artifact and never
+publishes; it is also the one mode that accepts a ref that is not on `main`.
 
 ## If a publish fails halfway
 
