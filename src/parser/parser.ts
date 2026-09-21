@@ -97,7 +97,7 @@ class Parser {
      * where a newline ends the expression — that they are in that context.
      */
     private parenDepth = 0;
-    /** Comment lines seen since the last item, used for doc comments. */
+    /** Raw comment tokens seen since the last item, used for doc comments. */
     private pendingDoc: string[] = [];
 
     constructor(tokens: readonly Token[]) {
@@ -280,7 +280,7 @@ class Parser {
         }
         if (this.at(TokenKind.Comment)) {
             const comment = this.advance();
-            this.pendingDoc.push(comment.text.replace(/^#+\s?/, ""));
+            this.pendingDoc.push(comment.text);
             // Consume the newline here rather than letting the branch above see
             // it, which would clear the doc we just collected. Only a *blank*
             // line separates a comment from the item it documents.
@@ -482,11 +482,20 @@ class Parser {
      * block — verified against `--dump`, which reports "Second line" for a
      * two-line comment. Joining the lines instead would put text in hovers that
      * `just --list` never shows.
+     *
+     * The text is that line minus its leading `#`, trimmed at both ends: a
+     * second `#` stays (`## x` documents as `# x`), and a line that is blank
+     * after trimming is no doc at all, even when a non-blank comment sits
+     * above it. All verified against `--dump` on 1.21 and 1.58.
      */
     private takeDoc(): string | undefined {
-        const doc = this.pendingDoc.at(-1);
+        const last = this.pendingDoc.at(-1);
         this.pendingDoc = [];
-        return doc;
+        if (last === undefined) {
+            return undefined;
+        }
+        const text = last.replace(/^#/, "").trim();
+        return text === "" ? undefined : text;
     }
 
     // -- attributes ---------------------------------------------------------
@@ -503,7 +512,7 @@ class Parser {
             this.skipNewlines();
             // Comments may sit between attributes and the recipe they decorate.
             while (this.at(TokenKind.Comment)) {
-                this.pendingDoc.push(this.advance().text.replace(/^#+\s?/, ""));
+                this.pendingDoc.push(this.advance().text);
                 this.skipNewlines();
             }
         }

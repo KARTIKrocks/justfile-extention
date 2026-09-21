@@ -636,3 +636,34 @@ describe("keywords are not reserved words", () => {
         ]);
     });
 });
+
+describe("doc comments", () => {
+    // Every expectation here is what `just --dump` reports; the fixture
+    // 06-doc-comments.just proves it against the binary.
+    const docOf = (source: string): string | undefined =>
+        modelFromSource(`${source}\nr:\n    echo\n`).recipes[0]?.doc;
+
+    it("takes the last comment line only", () => {
+        expect(docOf("# first\n# second")).toBe("second");
+    });
+
+    it("trims whitespace at both ends", () => {
+        expect(docOf("#    padded   ")).toBe("padded");
+        expect(docOf("#\tpadded")).toBe("padded");
+    });
+
+    it("strips exactly one hash", () => {
+        expect(docOf("## two")).toBe("# two");
+        expect(docOf("#no space")).toBe("no space");
+    });
+
+    it("treats a blank comment as no doc, even under a real one", () => {
+        expect(docOf("#")).toBeUndefined();
+        expect(docOf("#   ")).toBeUndefined();
+        expect(docOf("# real\n#")).toBeUndefined();
+    });
+
+    it("still takes the last line after a blank one", () => {
+        expect(docOf("#\n# last")).toBe("last");
+    });
+});

@@ -294,7 +294,9 @@ export function comparableFromDump(dump: unknown, caps: DumpCapabilities): Compa
                 dependencies,
                 priors: typeof r["priors"] === "number" ? r["priors"] : 0,
                 attributes,
-                doc: typeof r["doc"] === "string" ? r["doc"] : null,
+                // A blank doc is no doc: old binaries report "" where new ones
+                // report null for a comment that is empty after trimming.
+                doc: typeof r["doc"] === "string" && r["doc"] !== "" ? r["doc"] : null,
                 quiet: r["quiet"] === true,
                 shebang: r["shebang"] === true,
                 private: r["private"] === true,
